@@ -126,6 +126,7 @@ export default function LeafletMap(props: LeafletMapProps) {
     }
     if (bounds && props.fit === 'allowed' && !fitted.current) {
       fitted.current = true;
+      m.invalidateSize({ pan: false });
       m.fitBounds(bounds, { padding: [16, 16], animate: false });
     }
   }, [props.allowedCells, props.fit]);
@@ -158,6 +159,7 @@ export default function LeafletMap(props: LeafletMapProps) {
     }
     if (props.fit === 'pins' && !fitted.current && groups.length > 0) {
       fitted.current = true;
+      m.invalidateSize({ pan: false });
       const b = L.latLngBounds(groups.map((p) => [p.lat, p.lon] as [number, number]));
       if (groups.length === 1) m.setView(b.getCenter(), 15, { animate: false });
       else m.fitBounds(b, { padding: [40, 40], maxZoom: 15, animate: false });
