@@ -11,7 +11,8 @@ export function textLengths(text:string){
   const normalized=text.normalize('NFC');
   return {normalized,total:[...normalized].length,nonspace:[...normalized.replace(/\p{White_Space}/gu,'')].length};
 }
-export function validateSubmission(input:unknown):Submission {
+/** expectedNotice가 null이면 형식만 검사한다(서버: DB의 현재 안내 버전과 RPC에서 비교). */
+export function validateSubmission(input:unknown,expectedNotice:string|null=NOTICE_VERSION):Submission {
   if(!input||typeof input!=='object'||Array.isArray(input))throw new ValidationError('INVALID_BODY');
   const x=input as Record<string,unknown>;
   if(Object.keys(x).some(k=>!KEYS.includes(k))||KEYS.some(k=>!(k in x)))throw new ValidationError('INVALID_FIELDS');
@@ -21,13 +22,13 @@ export function validateSubmission(input:unknown):Submission {
   if(!LANGUAGES.includes(x.language as Submission['language']))throw new ValidationError('INVALID_LANGUAGE','language');
   if(typeof x.allow_map!=='boolean'||typeof x.allow_player!=='boolean')throw new ValidationError('INVALID_CONSENT');
   if(x.allow_player&&!x.allow_map)throw new ValidationError('INVALID_CONSENT','allow_player');
-  if(x.notice_version!==NOTICE_VERSION)throw new ValidationError('INVALID_NOTICE','notice_version');
+  if(typeof x.notice_version!=='string'||x.notice_version.length<1||x.notice_version.length>64||(expectedNotice!==null&&x.notice_version!==expectedNotice))throw new ValidationError('INVALID_NOTICE','notice_version');
   if(typeof x.original_text!=='string')throw new ValidationError('INVALID_TEXT','original_text');
   const text=textLengths(x.original_text);
   if(text.nonspace<10)throw new ValidationError('TEXT_TOO_SHORT','original_text');
   if(text.total>500)throw new ValidationError('TEXT_TOO_LONG','original_text');
   return {grid_version:GRID_VERSION,cell_x:x.cell_x as number,cell_y:x.cell_y as number,
     category:x.category as Submission['category'],language:x.language as Submission['language'],
-    original_text:text.normalized,allow_map:x.allow_map,allow_player:x.allow_player,notice_version:NOTICE_VERSION};
+    original_text:text.normalized,allow_map:x.allow_map,allow_player:x.allow_player,notice_version:x.notice_version};
 }
 export function validSummary(text:string){const x=textLengths(text);return x.nonspace>0&&x.total<=250;}

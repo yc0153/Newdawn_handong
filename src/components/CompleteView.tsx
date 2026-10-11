@@ -2,14 +2,14 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from './I18nProvider';
-import { takeReceipt } from '@/lib/client/receipt';
+import { peekReceipt } from '@/lib/client/receipt';
 
 export default function CompleteView() {
   const { t } = useI18n();
   const [receipt, setReceiptState] = useState<{ reference: string } | null | undefined>(undefined);
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
-    setReceiptState(takeReceipt());
+    setReceiptState(peekReceipt());
   }, []);
   useEffect(() => { if (receipt !== undefined) heading.current?.focus(); }, [receipt]);
   if (receipt === undefined) return <div className="card complete-card" aria-busy="true" />;

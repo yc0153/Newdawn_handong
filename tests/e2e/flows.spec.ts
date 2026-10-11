@@ -181,6 +181,27 @@ test('T07·X05: double click and a lost response create exactly one opinion with
   expect(count).toBe(1);
 });
 
+test('S03: clicks after a successful response cannot create a second opinion', async ({ page }) => {
+  let posts = 0;
+  await page.route('**/api/opinions', async (route) => {
+    posts += 1;
+    const res = await route.fetch();
+    await page.waitForTimeout(300); // 응답 후 화면 전환이 늦는 상황
+    await route.fulfill({ response: res });
+  });
+  await page.goto('/submit');
+  await clickInsideArea(page);
+  const text = `[E2E] 성공 후 재클릭 ${randomUUID().slice(0, 6)}`;
+  await fillDraft(page, text);
+  const btn = page.locator('.submit-panel button[type="submit"]');
+  await btn.click();
+  for (let i = 0; i < 5; i++) await btn.click({ force: true, timeout: 500 }).catch(() => undefined);
+  await expect(page).toHaveURL(/\/submit\/complete$/);
+  expect(posts).toBe(1);
+  const { count } = await admin.from('opinions').select('*', { count: 'exact', head: true }).eq('original_text', text);
+  expect(count).toBe(1);
+});
+
 test('validation: field errors keep the draft; changing content after failure uses a new key', async ({ page }) => {
   const keys: string[] = [];
   page.on('request', (r) => { if (r.url().endsWith('/api/opinions')) keys.push(r.headers()['idempotency-key']); });

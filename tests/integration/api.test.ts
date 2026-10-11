@@ -251,6 +251,22 @@ test('deleted opinion: same-key retry returns the receipt without recreating (X0
   assert.equal(count, 1);
 });
 
+test('active operator cannot bypass the action RPC with direct table updates (X09)', async () => {
+  const op = await loginCookie(OP1.email, OP1.password);
+  const { id } = await newOpinion();
+  const direct = createClient(SB_URL, PUBLISHABLE, {
+    auth: { persistSession: false },
+    global: { headers: { Authorization: `Bearer ${op.accessToken}` } },
+  });
+  const read = await direct.from('opinions').select('id').eq('id', id);
+  assert.equal(read.data?.length, 1, 'operator can read via RLS');
+  const upd = await direct.from('opinions').update({ summary: '직접 수정' }).eq('id', id).select();
+  assert.ok(upd.error, 'direct update must be rejected');
+  const row = await admin.from('opinions').select('summary,version').eq('id', id).single();
+  assert.equal(row.data!.summary, null);
+  assert.equal(row.data!.version, 1);
+});
+
 test('deactivating an operator revokes access on the next request (X11)', async () => {
   const email = `it-tmp-${randomUUID().slice(0, 6)}@local.test`;
   const userId = await ensureUser(email, 'it-pass-tmp-1234', true);

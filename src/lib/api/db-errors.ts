@@ -23,6 +23,7 @@ const MAP: Record<string, [number, string?]> = {
   HIDE_BEFORE_EDIT: [409],
   INVALID_TRANSITION: [409],
   IMMUTABLE_SUBMISSION: [409],
+  ONE_ACTION_PER_CHANGE: [409],
   INVALID_SUMMARY: [422, 'summary'],
   PUBLICATION_NOT_ALLOWED: [422],
   PLAYER_NOT_ALLOWED: [422, 'include_in_player'],

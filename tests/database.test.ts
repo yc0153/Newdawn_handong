@@ -178,3 +178,22 @@ test('hide clears player inclusion so a republished summary needs re-confirmatio
     await assert.rejects(()=>db.query('select public.cleanup_expired_rate_buckets()'),/permission denied/);
   }finally{await db.close();}
 });
+test('operators cannot bypass the RPC with direct updates; RPC still enforces membership (X09, X11)',async()=>{
+  const db=await boot();try{
+    await db.exec('update public.service_settings set submissions_enabled=true');
+    await submit(db);const [row]=await raw(db);
+    await role(db,'authenticated',operator);
+    await assert.rejects(()=>db.query("update public.opinions set status='hidden' where id=$1",[row.id]),/permission denied/);
+    await role(db,'authenticated',outsider);
+    await assert.rejects(()=>db.query('select public.admin_opinion_action($1,1,$2,$3)',[row.id,'save_summary','x']),/FORBIDDEN/);
+    let c=await action(db,row.id,1,'save_summary','요약');
+    c=await action(db,row.id,c.version,'publish');
+    c=await action(db,row.id,c.version,'set_player',null,true);
+    await action(db,row.id,c.version,'hide');
+    await role(db,'postgres');
+    const r=await db.query<{include_in_player:boolean}>('select include_in_player from public.opinions where id=$1',[row.id]);
+    assert.equal(r.rows[0].include_in_player,false);
+    const a=await db.query<{action:string}>('select action from public.admin_audit_logs where opinion_id=$1 order by version',[row.id]);
+    assert.deepEqual(a.rows.map(x=>x.action),['save_summary','publish','set_player','hide']);
+  }finally{await db.close();}
+});

@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const body = await readJsonObject(request);
     let submission;
     try {
-      submission = validateSubmission(body);
+      submission = validateSubmission(body, null);
     } catch (e) {
       if (e instanceof ValidationError) {
         const field = e.code === 'INVALID_CELL' || e.code === 'INVALID_GRID' ? 'location' : e.field;

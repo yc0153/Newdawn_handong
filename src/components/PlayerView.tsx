@@ -69,11 +69,15 @@ export default function PlayerView() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey || e.ctrlKey || e.metaKey || typingTarget(e.target)) return;
-      const onControl = e.target instanceof HTMLElement && ['BUTTON', 'A'].includes(e.target.tagName);
+      const el = e.target instanceof HTMLElement ? e.target : null;
+      // 버튼·링크에서는 Space를 기본 동작에 맡기고, 지도에 초점이 있으면 방향키는 지도 이동에 쓴다.
+      const onControl = !!el && ['BUTTON', 'A'].includes(el.tagName);
+      const onMap = !!el?.closest('.leaflet-container');
+      if (onMap && e.key.startsWith('Arrow')) return;
       if (e.key === 'ArrowLeft') { e.preventDefault(); dispatch({ type: 'prev', ids: idsRef.current }); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); dispatch({ type: 'next', ids: idsRef.current }); }
       else if ((e.key === ' ' || e.code === 'Space') && !onControl) { e.preventDefault(); dispatch({ type: 'toggle', ids: idsRef.current }); }
-      else if ((e.key === 'f' || e.key === 'F') && !onControl) { e.preventDefault(); void toggleFullscreen(); }
+      else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); void toggleFullscreen(); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

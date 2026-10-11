@@ -6,7 +6,7 @@ import MapView from './map/MapView';
 import { useI18n } from './I18nProvider';
 import { useReducedMotion } from '@/lib/client/useReducedMotion';
 import { CATEGORY_KEYS, CATEGORY_ORDER } from '@/lib/client/categories';
-import { setReceipt } from '@/lib/client/receipt';
+import { clearReceipt, setReceipt } from '@/lib/client/receipt';
 import { cellKey, GRID_VERSION, quantize, representative } from '@/lib/domain/grid';
 import { textLengths } from '@/lib/domain/validation';
 import type { Category, Language, PublicConfig } from '@/lib/domain/types';
@@ -32,6 +32,8 @@ export default function SubmitFlow() {
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
+  // 등록 성공 후 완료 화면으로 바뀌기 전까지 다시 제출하지 못하게 잠근다(요청 키도 유지).
+  const [done, setDone] = useState(false);
   const [submitError, setSubmitError] = useState<MessageKey | null>(null);
   const [tileStatus, setTileStatus] = useState<'ok' | 'failed' | 'unknown'>('unknown');
   const [reloadToken, setReloadToken] = useState(0);
@@ -50,6 +52,7 @@ export default function SubmitFlow() {
     }
   }, []);
   useEffect(() => {
+    clearReceipt();
     void loadConfig();
   }, [loadConfig]);
 
@@ -67,7 +70,7 @@ export default function SubmitFlow() {
 
   // 지도 클릭·Enter: 원좌표는 이 함수 안에서만 쓰고 격자 번호만 남긴다.
   const onPick = useCallback((lat: number, lon: number) => {
-    if (!open || submitting) return;
+    if (!open || submitting || done) return;
     let picked: Cell;
     try {
       const q = quantize(lat, lon);
@@ -84,7 +87,7 @@ export default function SubmitFlow() {
     setChoosing(false);
     setLocationNotice(null);
     setErrors((e) => ({ ...e, location: undefined }));
-  }, [allowed, open, submitting]);
+  }, [allowed, open, submitting, done]);
 
   const tag = useMemo(() => {
     if (!cell) return null;
@@ -122,7 +125,7 @@ export default function SubmitFlow() {
 
   async function submit(ev: React.FormEvent) {
     ev.preventDefault();
-    if (submitting || !config.data || !cell) return;
+    if (submitting || done || !config.data || !cell) return;
     const e = validate();
     setErrors(e);
     if (Object.values(e).some(Boolean)) { setSubmitError('panel.fixErrors'); focusFirst(e); return; }
@@ -155,7 +158,7 @@ export default function SubmitFlow() {
       const body = await res.json().catch(() => null);
       if (res.status === 201 || res.status === 200) {
         if (!body || typeof body.reference !== 'string') throw new Error('shape');
-        attempt.current = null;
+        setDone(true);
         setReceipt({ reference: body.reference });
         router.push('/submit/complete');
         return;
@@ -308,8 +311,8 @@ export default function SubmitFlow() {
             </fieldset>
 
             {submitError ? <p className="state state--error" role="alert">{t(submitError)}</p> : null}
-            <button type="submit" className="btn btn--primary btn--block" disabled={submitting}>
-              {submitting ? t('panel.submitting') : t('panel.submit')} <span aria-hidden="true">→</span>
+            <button type="submit" className="btn btn--primary btn--block" disabled={submitting || done}>
+              {submitting || done ? t('panel.submitting') : t('panel.submit')} <span aria-hidden="true">→</span>
             </button>
           </form>
         ) : null}
