@@ -12,6 +12,22 @@ npm run dev
 
 `/`는 `/map`으로 이동한다(`?view=browse|place|player`는 각각 `/map`·`/submit`·`/player`). `check`는 lint·typecheck·unit·db test·build를 실행한다. DB 검증은 격리된 PGlite PostgreSQL로 Supabase role/auth 구조를 모형화하며 실제 Supabase 네트워크 호출은 하지 않는다.
 
+### 가장 빠른 로컬 실행 (Windows·macOS 공통)
+
+준비: Node.js 22 LTS(22.13 이상) 또는 24, Docker Desktop(Windows는 WSL2 사용 설정). Docker Desktop을 켜 둔다.
+
+```bash
+npm ci
+npm run local:setup      # 로컬 Supabase 시작 → .env.local 작성 → 테스트 영역 열기 → 담당자 계정 생성
+npm run dev              # http://localhost:3000
+```
+
+- `local:setup`이 마지막에 담당자 이메일·비밀번호를 출력한다(기본 `admin@local.test`). 원하는 계정: `npm run local:setup -- 이메일 비밀번호`.
+- 처음 실행은 Supabase 이미지 내려받기로 몇 분 걸린다. 다 쓴 뒤 끄기: `npx supabase stop`.
+- 개발 서버는 지도 설정이 비어 있으면 OSM 지도를 개발용으로 표시한다.
+- Windows PowerShell에서 `npm.ps1 ... 스크립트를 실행할 수 없으므로` 오류가 나면 `npm.cmd ci`처럼 `npm.cmd`로 실행하거나 명령 프롬프트(cmd)를 쓴다.
+- 이 스크립트의 Supabase 시작 단계(1~3)는 Docker 이미지 저장소에 접근할 수 없는 검수 환경에서 실행해 보지 못했다. 4~5단계는 로컬 동등 스택에서 확인했다.
+
 ### 로컬에서 전체 흐름 띄우기
 
 1. Docker와 Supabase CLI를 준비하고 `supabase start` → `supabase db reset --local`로 마이그레이션 3개를 적용한다.
