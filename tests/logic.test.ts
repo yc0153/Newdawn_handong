@@ -157,3 +157,15 @@ test('db error mapping never leaks internals; admin action allow-list', () => {
   assert.throws(() => parseAdminAction({ action: 'set_status', expected_version: 1 }), (e: AdminInputError) => e.code === 'INVALID_ACTION');
   assert.throws(() => parseAdminAction({ action: 'set_player', expected_version: 1, include_in_player: 'yes' }), (e: AdminInputError) => e.code === 'INVALID_FIELDS');
 });
+
+import { mergeCells } from '../src/lib/domain/grid';
+test('grid: allowed cells merge into covering rectangles without gaps or extras', () => {
+  const cells = [] as { cell_x: number; cell_y: number }[];
+  for (let x = 0; x < 5; x++) for (let y = 0; y < 4; y++) cells.push({ cell_x: x, cell_y: y });
+  cells.push({ cell_x: 9, cell_y: 2 });
+  const rects = mergeCells(cells);
+  const covered = new Set<string>();
+  for (const r of rects) for (let x = r.x0; x <= r.x1; x++) for (let y = r.y0; y <= r.y1; y++) covered.add(`${x}:${y}`);
+  assert.deepEqual([...covered].sort(), cells.map((c) => `${c.cell_x}:${c.cell_y}`).sort());
+  assert.equal(rects.length, 2);
+});

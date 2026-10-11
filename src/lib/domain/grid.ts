@@ -22,3 +22,22 @@ export function cellBounds(cell:Cell):[[number,number],[number,number]] {
   return [[c.lat-dLat,c.lon-dLon],[c.lat+dLat,c.lon+dLon]];
 }
 export const cellKey=(x:number,y:number)=>`${x}:${y}`;
+/** 허용 셀을 가로 연속 구간 → 세로 병합해 최소한의 직사각형으로 묶는다(그리기용). */
+export function mergeCells(cells:{cell_x:number;cell_y:number}[]):{x0:number;x1:number;y0:number;y1:number}[] {
+  const rows=new Map<number,number[]>();
+  for(const c of cells)rows.set(c.cell_y,[...(rows.get(c.cell_y)??[]),c.cell_x]);
+  const runs:{x0:number;x1:number;y:number}[]=[];
+  for(const [y,xs] of [...rows].sort((a,b)=>a[0]-b[0])){
+    const s=[...new Set(xs)].sort((a,b)=>a-b);let start=s[0],prev=s[0];
+    for(const x of s.slice(1)){if(x===prev+1){prev=x;continue;}runs.push({x0:start,x1:prev,y});start=prev=x;}
+    runs.push({x0:start,x1:prev,y});
+  }
+  const open=new Map<string,{x0:number;x1:number;y0:number;y1:number}>();const done:{x0:number;x1:number;y0:number;y1:number}[]=[];
+  for(const r of runs){
+    const k=`${r.x0}:${r.x1}`;const o=open.get(k);
+    if(o&&o.y1===r.y-1){o.y1=r.y;continue;}
+    if(o)done.push(o);
+    open.set(k,{x0:r.x0,x1:r.x1,y0:r.y,y1:r.y});
+  }
+  return [...done,...open.values()];
+}
