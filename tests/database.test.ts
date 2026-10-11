@@ -127,3 +127,54 @@ test('rate limits roll back, non-consented publication denied and SQL Unicode pa
     await assert.rejects(()=>db.query('insert into public.opinions(cell_x,cell_y,category,language,original_text,notice_version) values(999,999,$1,$2,$3,$4)',['transport','ko','1234567890','2026-10-06-v1']),/foreign key/);
   }finally{await db.close();}
 });
+test('public truth table for browse/player matches the specification for every state (X08)',async()=>{
+  const db=await boot();try{
+    await role(db,'postgres');
+    const expected:{browse:Set<string>;player:Set<string>}={browse:new Set(),player:new Set()};
+    let n=0;
+    for(const [map,player] of [[false,false],[true,false],[true,true]] as const)
+    for(const status of ['pending','published','hidden'] as const)
+    for(const include of [false,true])
+    for(const summary of [null,'담당자 요약'])
+    for(const deleted of [false,true]){
+      if(include&&!(map&&player))continue;
+      if(status==='published'&&(!map||summary===null||deleted))continue;
+      if(deleted&&(status!=='hidden'||include||summary!==null))continue;
+      n++;
+      const r=await db.query<{public_id:string}>(`insert into public.opinions(cell_x,cell_y,category,language,original_text,allow_map,allow_player,notice_version,summary,status,include_in_player,deleted_at)
+        values(41,28,'other','ko',$1,$2,$3,'2026-10-06-v1',$4,$5,$6,$7) returning public_id`,
+        [deleted?null:'1234567890',map,player,summary,status,include,deleted?new Date().toISOString():null]);
+      const visible=map&&status==='published'&&!deleted&&summary!==null;
+      if(visible)expected.browse.add(r.rows[0].public_id);
+      if(visible&&player&&include)expected.player.add(r.rows[0].public_id);
+    }
+    assert.ok(n>10);
+    const browse=new Set((await publicData(db)).map(x=>x.public_id as string));
+    const player=new Set((await publicData(db,'player')).map(x=>x.public_id as string));
+    assert.deepEqual([...browse].sort(),[...expected.browse].sort());
+    assert.deepEqual([...player].sort(),[...expected.player].sort());
+  }finally{await db.close();}
+});
+test('hide clears player inclusion so a republished summary needs re-confirmation; rate bucket cleanup',async()=>{
+  const db=await boot();try{
+    await db.exec('update public.service_settings set submissions_enabled=true');
+    await submit(db);const [row]=await raw(db);
+    let c=await action(db,row.id,1,'save_summary','요약');
+    c=await action(db,row.id,c.version,'publish');
+    c=await action(db,row.id,c.version,'set_player',null,true);
+    assert.equal((await publicData(db,'player')).length,1);
+    c=await action(db,row.id,c.version,'hide');
+    c=await action(db,row.id,c.version,'publish');
+    assert.equal((await publicData(db,'player')).length,0);
+    assert.equal((await publicData(db)).length,1);
+    // no-op action keeps the version and writes no audit entry
+    const before=c.version;const same=await action(db,row.id,before,'publish');
+    assert.equal(same.version,before);
+    await role(db,'postgres');
+    await db.query("insert into public.rate_buckets values($1,'day',now()-interval '3 days',1),($2,'day',now(),1)",[hash('old'),hash('new')]);
+    await role(db,'service_role');
+    assert.equal((await db.query<{n:number}>('select public.cleanup_expired_rate_buckets() as n')).rows[0].n,1);
+    await role(db,'anon');
+    await assert.rejects(()=>db.query('select public.cleanup_expired_rate_buckets()'),/permission denied/);
+  }finally{await db.close();}
+});

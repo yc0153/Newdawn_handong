@@ -20,3 +20,13 @@
 - 검증 실패를 고치고 결과를 보고한다. 접근할 수 없는 외부 설정은 정확한 남은 작업과 영향 범위로 기록한다. 확인하지 않은 기능을 완료라고 쓰지 않는다.
 
 작업 후 변경 내용, 통과한 검수, 미검증 범위, 다음 단계를 짧게 보고한다. 모든 필수 기능과 연결 검수까지 끝날 때까지 작업을 이어간다.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

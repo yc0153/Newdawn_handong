@@ -15,3 +15,10 @@ export function representative(cell:Cell):{lat:number;lon:number} {
 }
 // Region eligibility is checked against server-controlled allowed_cells.
 // Do not retain/send the raw input coordinates after quantize().
+// Cell edges for drawing the allowed area. South-west and north-east corners.
+export function cellBounds(cell:Cell):[[number,number],[number,number]] {
+  const c=representative(cell);
+  const dLat=SIZE/2/R/RAD, dLon=SIZE/2/(R*Math.cos(REF_LAT*RAD))/RAD;
+  return [[c.lat-dLat,c.lon-dLon],[c.lat+dLat,c.lon+dLon]];
+}
+export const cellKey=(x:number,y:number)=>`${x}:${y}`;
