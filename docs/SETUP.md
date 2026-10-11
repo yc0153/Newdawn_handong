@@ -10,7 +10,27 @@ npm run check
 npm run dev
 ```
 
-현재 `/`는 한국어 설정 안내 화면이다. 최종 제품에서는 /map으로 바꾼다. 기반 검증 스크립트 `check`는 lint·typecheck·unit·db test·build를 실행한다. DB 검증은 격리된 PGlite PostgreSQL로 Supabase role/auth 구조를 최소 모형화하며 실제 Supabase 네트워크 호출은 하지 않는다.
+`/`는 `/map`으로 이동한다(`?view=browse|place|player`는 각각 `/map`·`/submit`·`/player`). `check`는 lint·typecheck·unit·db test·build를 실행한다. DB 검증은 격리된 PGlite PostgreSQL로 Supabase role/auth 구조를 모형화하며 실제 Supabase 네트워크 호출은 하지 않는다.
+
+### 로컬에서 전체 흐름 띄우기
+
+1. Docker와 Supabase CLI를 준비하고 `supabase start` → `supabase db reset --local`로 마이그레이션 3개를 적용한다.
+2. **로컬 전용 테스트 영역**을 연다: `psql "<로컬 DB URL>" -f supabase/dev/local_dev_setup.sql`. 포항 시내 일부 사각형을 허용 셀로 넣고 등록을 켠다. 실제 수집 지역이 아니며 운영 DB에 실행하지 않는다. 의견 데이터는 넣지 않는다.
+3. `.env.local`에 `supabase status`의 API URL·publishable key·secret key와 `RATE_LIMIT_HMAC_SECRET`(32자 이상)을 넣는다. 헤더에 환경 이름을 보이려면 `NEXT_PUBLIC_ENV_LABEL=로컬 개발`.
+4. 로컬 담당자 계정: `npm run operator:local -- 이메일 비밀번호` (localhost Supabase에서만 실행됨).
+5. `npm run dev` → `http://localhost:3000`. 담당자 화면은 `/admin/login`.
+
+`next dev`에서 지도 공급자 변수가 비어 있으면 OSM 표준 타일을 **개발용**으로 쓰고 화면에 ‘개발용 지도 타일’을 표시한다. 운영 빌드에서는 공급자 변수가 없으면 지도 대신 안내와 목록을 보여준다.
+
+### 검수 명령
+
+| 명령 | 필요한 것 |
+| --- | --- |
+| `npm run test:unit`, `npm run test:db` | 없음 |
+| `npm run test:integration` | 로컬 Supabase + 실행 중인 Next 서버. 서버와 테스트 모두 `TRUSTED_CLIENT_IP_HEADER=x-test-client-ip`로 실행(테스트마다 다른 클라이언트로 보이게 함) |
+| `npm run test:e2e` | 위와 같음 + 검수용 타일 서버 `npm run tiles:test` + `.env.local`에 `NEXT_PUBLIC_MAP_TILE_URL=http://127.0.0.1:8099/{z}/{x}/{y}.svg`, `NEXT_PUBLIC_MAP_ATTRIBUTION=검수용 테스트 타일` 후 빌드 |
+
+연결·E2E 테스트는 로컬 DB에 `[연결검수]`·`[E2E]` 표시가 붙은 검수 데이터를 남긴다. 다시 깨끗하게 하려면 `supabase db reset --local`.
 
 ## 2 환경 변수
 
@@ -26,6 +46,10 @@ npm run dev
 | TRUSTED_CLIENT_IP_HEADER | 플랫폼이 보장한 client IP header | 헤더명과 신뢰 proxy 동작을 직접 검증 |
 | NEXT_PUBLIC_MAP_TILE_URL | 확정 지도 공급자 타일 URL | Leaflet provider에 해당할 때만 사용 |
 | NEXT_PUBLIC_MAP_ATTRIBUTION | 지도 출처 | 공급자 약관에 맞춰 표시 |
+| NEXT_PUBLIC_ENV_LABEL | 헤더의 환경 표시(선택) | 운영에서는 비움 |
+| NEXT_PUBLIC_AREA_LABEL | 화면의 수집 지역 이름(선택) | 학교 확정 후 입력 |
+| ALLOWED_FRAME_ANCESTORS | iframe 삽입 허용 출처(빌드 시 반영) | 학교 사이트 출처만 |
+| API_ACCESS_LOG | on이면 경로·상태·시간·오류코드만 기록 | 본문·원문·좌표는 기록하지 않음 |
 
 지도 SDK 공급자로 바꾸면 adapter 전용 변수를 추가한다. 지도 public key는 허용 origin/domain 제한을 설정한다. APP_ORIGIN localhost 값은 운영 도메인으로 승격하지 않는다.
 

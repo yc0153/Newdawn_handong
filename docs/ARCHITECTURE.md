@@ -88,7 +88,7 @@ representative x/y = ((cell_x + 0.5) * 200, (cell_y + 0.5) * 200)
 
 - `public.read_public_opinions(mode)`는 서비스 역할만 실행, 고정 DTO 4종만 반환한다.
 - `public.submit_opinion(...)`는 서비스 역할만 실행. cell 허용, 입력 검증, 동의 종속, fingerprint, 멱등·빈도 제한·insert를 한 트랜잭션으로 처리한다.
-- `public.admin_opinion_action(...)`은 authenticated만 실행하되 활성 담당자와 version을 검사한다. DB 테이블 RLS와 함께 적용한다. 함수는 SECURITY INVOKER다.
+- `public.admin_opinion_action(...)`은 authenticated만 실행하되 활성 담당자와 version을 검사한다. 2026-10-11부터 테이블 직접 UPDATE 권한을 회수하고 이 함수만 SECURITY DEFINER로 변경을 수행한다(트리거가 활성 담당자를 다시 검사). 근거는 DECISIONS.md.
 - `private` trigger 함수는 공개 노출하지 않는다. 최소 이력 기록만 필요한 SECURITY DEFINER로 사용하고 `search_path=''`, 직접 EXECUTE 철회를 적용한다.
 - DB 상태 제약은 published이면 지도 선택+유효 요약, 상영 포함이면 두 공개 선택, 삭제이면 원문·요약 null을 강제한다.
 

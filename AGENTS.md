@@ -4,7 +4,7 @@
 
 - 프론트엔드 Next.js App Router·TypeScript, 백엔드 Supabase Postgres·담당자 Auth를 유지한다. 사용자 계정을 만들지 않는다.
 - 요구에 없는 AI·자동번역·사진·댓글·통계·내보내기·GPS·검색·조회함을 추가하지 않는다.
-- 전체 서비스는 아직 미구현이다. 기반 코드와 SQL이 있다는 사실을 제품 완료로 보고하지 않는다.
+- P0 기능은 로컬에서 구현·검수했다(docs/VERIFICATION.md). 실제 Supabase 프로젝트·배포 도메인·지도 공급자 검수 전에는 운영 완료로 보고하지 않는다.
 - 실제 원문·민감정보·정밀 좌표·비밀키를 로그, URL, 분석, 예외 수집, 저장소에 남기지 않는다.
 - 지도 클릭 원좌표는 브라우저에서 격자로 변환한 뒤 버린다. 서버에는 grid version·cell x/y만 보낸다. 클라이언트 대표점도 믿지 않고 서버가 재계산한다.
 - 공개 API는 public_id·category·location·summary만 전달한다. 관리자 DTO를 재사용하거나 공개 응답에서 select('*') 하지 않는다.
