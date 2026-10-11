@@ -14,7 +14,10 @@
     "test:unit": "tsx --test tests/domain.test.ts tests/logic.test.ts",
     "test:db": "tsx --test tests/database.test.ts",
     "check": "npm run lint && npm run typecheck && npm run test:unit && npm run test:db && npm run build",
-    "test:integration": "node --env-file=.env.local --import tsx --test --test-concurrency=1 tests/integration/api.test.ts"
+    "test:integration": "node --env-file=.env.local --import tsx --test --test-concurrency=1 tests/integration/api.test.ts",
+    "test:e2e": "playwright test",
+    "tiles:test": "node tests/e2e/tile-server.mjs",
+    "operator:local": "node --env-file=.env.local scripts/create-local-operator.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

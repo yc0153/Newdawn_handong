@@ -98,8 +98,13 @@ export async function publicIdOf(id: string): Promise<string> {
 }
 
 export async function ensureUser(email: string, password: string, operator: boolean | null) {
-  const list = await admin.auth.admin.listUsers({ perPage: 1000 });
-  let user = list.data.users.find((u) => u.email === email);
+  let user: { id: string } | undefined;
+  for (let page = 1; !user; page++) {
+    const list = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (list.error) throw list.error;
+    user = list.data.users.find((u) => u.email === email);
+    if (list.data.users.length < 200) break;
+  }
   if (!user) {
     const created = await admin.auth.admin.createUser({ email, password, email_confirm: true });
     if (created.error) throw created.error;
