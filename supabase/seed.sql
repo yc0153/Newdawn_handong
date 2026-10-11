@@ -1,0 +1,1 @@
+-- Intentionally empty: no real region, operators or fictional opinions are seeded.
