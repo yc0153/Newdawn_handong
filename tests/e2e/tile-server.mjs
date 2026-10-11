@@ -2,6 +2,10 @@
 import http from 'node:http';
 const port = Number(process.env.TILE_PORT ?? 8099);
 http.createServer((req, res) => {
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, { 'access-control-allow-origin': '*', 'access-control-allow-headers': req.headers['access-control-request-headers'] ?? '*', 'access-control-allow-methods': 'GET' });
+    return res.end();
+  }
   const m = req.url.match(/^\/(\d+)\/(\d+)\/(\d+)\.svg$/);
   if (!m) { res.writeHead(404); return res.end(); }
   const [, z, x, y] = m;

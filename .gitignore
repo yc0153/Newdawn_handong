@@ -6,3 +6,5 @@ node_modules/
 supabase/.temp/
 supabase/.branches/
 .DS_Store
+test-results/
+playwright-report/

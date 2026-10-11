@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import MapView from './map/MapView';
 import type { PinGroup } from './map/LeafletMap';
 import { useI18n } from './I18nProvider';
@@ -11,6 +11,7 @@ import { mapProvider } from '@/lib/map/provider';
 import type { Category, PublicOpinion } from '@/lib/domain/types';
 import type { SnapshotView } from '@/lib/domain/snapshot';
 
+const PAGE = 100;
 const keyOf = (o: PublicOpinion) => `${o.location.lat.toFixed(7)},${o.location.lon.toFixed(7)}`;
 
 export default function MapExplorer() {
@@ -24,6 +25,7 @@ export default function MapExplorer() {
   const [focus, setFocus] = useState<{ lat: number; lon: number; token: number } | null>(null);
   const [tileStatus, setTileStatus] = useState<'ok' | 'failed' | 'unknown'>('unknown');
   const [reloadToken, setReloadToken] = useState(0);
+  const [limit, setLimit] = useState(PAGE);
 
   const all = view.kind === 'fresh' ? view.cases : null;
   const filtered = useMemo(() => (all ? all.filter((o) => filter === 'all' || o.category === filter) : null), [all, filter]);
@@ -53,10 +55,10 @@ export default function MapExplorer() {
 
   const listed = filtered && activeGroup ? filtered.filter((o) => keyOf(o) === activeGroup) : filtered;
 
-  function selectOpinion(o: PublicOpinion) {
+  const selectOpinion = useCallback((o: PublicOpinion) => {
     setSelectedId(o.public_id);
     setFocus({ lat: o.location.lat, lon: o.location.lon, token: Date.now() });
-  }
+  }, []);
   function selectGroup(key: string) {
     if (!filtered) return;
     const items = filtered.filter((o) => keyOf(o) === key);
@@ -75,7 +77,7 @@ export default function MapExplorer() {
               type="button"
               className={`chip${c !== 'all' ? ` chip--${c}` : ''}`}
               aria-pressed={filter === c}
-              onClick={() => { setFilter(c); setGroupKey(null); }}
+              onClick={() => { setFilter(c); setGroupKey(null); setLimit(PAGE); }}
             >
               {c === 'all' ? t('filter.all') : t(CATEGORY_KEYS[c])}
             </button>
@@ -119,29 +121,39 @@ export default function MapExplorer() {
           </div>
         ) : null}
         {listed && listed.length > 0 ? (
-          <ul className="opinion-list">
-            {listed.map((o) => {
-              const active = o.public_id === activeId;
-              return (
-                <li key={o.public_id}>
-                  <button type="button" className={`opinion${active ? ' opinion--active' : ''}`} aria-pressed={active} onClick={() => selectOpinion(o)} data-public-id={o.public_id}>
-                    <span className={`cat-label cat-label--${o.category}`}>{t(CATEGORY_KEYS[o.category])}</span>
-                    <span className="opinion__summary">{o.summary}</span>
-                    <span className="opinion__meta">
-                      <span>{t('list.summaryLabel')}</span>
-                      {active ? <span className="approx-chip">⌖ {t('list.approx')} · {t('list.approxHelp')}</span> : <span>{t('list.approx')}</span>}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <OpinionList items={listed.slice(0, Math.max(limit, listed.findIndex((o) => o.public_id === activeId) + 1))} activeId={activeId} onSelect={selectOpinion} />
+        ) : null}
+        {listed && listed.length > limit ? (
+          <button type="button" className="btn btn--small" onClick={() => setLimit((n) => n + PAGE)}>{t('list.more', { n: listed.length - limit })}</button>
         ) : null}
         <Link href="/submit" className="btn btn--primary btn--block side-panel__cta">{t('cta.write')} <span aria-hidden="true">+</span></Link>
       </aside>
     </div>
   );
 }
+
+const OpinionList = memo(function OpinionList({ items, activeId, onSelect }: { items: PublicOpinion[]; activeId: string | null; onSelect: (o: PublicOpinion) => void }) {
+  const { t } = useI18n();
+  return (
+    <ul className="opinion-list">
+      {items.map((o) => {
+        const active = o.public_id === activeId;
+        return (
+          <li key={o.public_id}>
+            <button type="button" className={`opinion${active ? ' opinion--active' : ''}`} aria-pressed={active} onClick={() => onSelect(o)} data-public-id={o.public_id}>
+              <span className={`cat-label cat-label--${o.category}`}>{t(CATEGORY_KEYS[o.category])}</span>
+              <span className="opinion__summary">{o.summary}</span>
+              <span className="opinion__meta">
+                <span>{t('list.summaryLabel')}</span>
+                {active ? <span className="approx-chip">⌖ {t('list.approx')} · {t('list.approxHelp')}</span> : <span>{t('list.approx')}</span>}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+});
 
 function StateMessage({ view, filteredCount, onRetry }: { view: SnapshotView<PublicOpinion>; filteredCount: number | null; onRetry: () => void }) {
   const { t } = useI18n();

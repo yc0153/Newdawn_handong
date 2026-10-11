@@ -60,13 +60,10 @@ export function usePublicSnapshot(mode: 'browse' | 'player'): { view: SnapshotVi
     return () => { clearInterval(id); invalidate(); };
   }, [load, invalidate]);
 
-  // 만료 판정을 위한 1초 시계. 화면 재생(12초)과 무관하게 성공 확인 시각만으로 판단한다.
+  // 만료 판정 1초 주기. 화면 재생(12초)과 무관하게 성공 확인 시각만으로 판단한다.
   useEffect(() => {
-    const id = setInterval(() => {
-      const t = performance.now();
-      setNow(t);
-      dispatch({ type: 'expire', now: t });
-    }, 1000);
+    // 상태가 바뀔 때만 다시 그린다(만료 시 reducer가 data를 비움). 매초 전체 재렌더링을 피한다.
+    const id = setInterval(() => dispatch({ type: 'expire', now: performance.now() }), 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -97,5 +94,7 @@ export function usePublicSnapshot(mode: 'browse' | 'player'): { view: SnapshotVi
     };
   }, [invalidate, load]);
 
-  return { view: snapshotView(state, now), retry: () => { void load(); } };
+  // 만료는 'expire'가 data를 비워 반영하므로, 표시 판단에는 마지막 갱신 시각 이후의 now를 쓴다.
+  const viewNow = state.lastVerified !== null ? Math.max(now, state.lastVerified) : now;
+  return { view: snapshotView(state, viewNow), retry: () => { void load(); } };
 }
