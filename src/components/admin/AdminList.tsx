@@ -51,7 +51,7 @@ export default function AdminList() {
         </div>
         <button type="button" className="btn btn--small" onClick={() => void load()}>새로고침</button>
       </div>
-      <p className="muted small">원문은 담당자만 볼 수 있습니다. 공개는 작성자의 지도 공개 선택과 담당자 요약·승인이 모두 있어야 합니다.</p>
+      <p className="muted small">원문은 담당자만 볼 수 있습니다. 공개는 작성자의 지도 공개 선택과 담당자 요약·승인이 모두 있어야 합니다. 플레이어에는 공개한 뒤 ‘상영에 포함’한 의견만 나옵니다(‘상영 대기’ 표시).</p>
       {result.state === 'error' ? <p className="state state--error" role="alert">목록을 불러오지 못했습니다.</p> : null}
       {result.state === 'loading' && !result.data ? <p className="state" aria-busy="true">불러오는 중…</p> : null}
       {result.data && result.data.data.length === 0 ? <p className="state state--empty">해당하는 의견이 없습니다.</p> : null}
@@ -62,6 +62,8 @@ export default function AdminList() {
               <Link href={`/admin/opinions/${o.id}`} className="admin-row">
                 <span className="admin-row__top">
                   <span className={`status status--${o.status}`}>{STATUS_LABEL[o.status]}</span>
+                  {o.status === 'published' && o.include_in_player ? <span className="status status--queue">상영 중</span> : null}
+                  {o.status === 'published' && o.allow_map && o.allow_player && !o.include_in_player ? <span className="status status--queue">상영 대기</span> : null}
                   <span className={`cat-label cat-label--${o.category}`}>{CATEGORY_LABEL[o.category]}</span>
                   <span className="muted">{LANGUAGE_LABEL[o.language]}</span>
                   <span className="muted">{formatDate(o.created_at)}</span>
@@ -70,7 +72,6 @@ export default function AdminList() {
                 <span className="admin-row__flags">
                   <span>지도 공개 선택 {o.allow_map ? '예' : '아니오'}</span>
                   <span>플레이어 공개 선택 {o.allow_player ? '예' : '아니오'}</span>
-                  {o.include_in_player ? <span>상영 포함</span> : null}
                   {o.summary ? <span>요약 있음</span> : <span>요약 없음</span>}
                 </span>
               </Link>

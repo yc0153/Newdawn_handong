@@ -121,7 +121,7 @@ export default function LeafletMap(props: LeafletMapProps) {
       const sw = cellBounds({ grid_version: GRID_VERSION, cell_x: r.x0, cell_y: r.y0 })[0];
       const ne = cellBounds({ grid_version: GRID_VERSION, cell_x: r.x1, cell_y: r.y1 })[1];
       const b = L.latLngBounds(sw, ne);
-      L.rectangle(b, { color: '#2f6f9f', weight: 1, opacity: 0.6, fillColor: '#2f6f9f', fillOpacity: 0.12, interactive: false }).addTo(g);
+      L.rectangle(b, { color: '#005378', weight: 1, opacity: 0.6, fillColor: '#005378', fillOpacity: 0.12, interactive: false }).addTo(g);
       bounds = bounds ? bounds.extend(b) : b;
     }
     if (bounds && props.fit === 'allowed' && !fitted.current) {
@@ -154,7 +154,7 @@ export default function LeafletMap(props: LeafletMapProps) {
       });
       marker.addTo(g);
       if (p.active) {
-        L.circle([p.lat, p.lon], { radius: 100, color: '#1f3a5a', weight: 1, fillColor: '#2f6f9f', fillOpacity: 0.12, interactive: false }).addTo(g);
+        L.circle([p.lat, p.lon], { radius: 100, color: '#00405D', weight: 1, fillColor: '#005378', fillOpacity: 0.12, interactive: false }).addTo(g);
       }
     }
     if (props.fit === 'pins' && !fitted.current && groups.length > 0) {
@@ -172,7 +172,7 @@ export default function LeafletMap(props: LeafletMapProps) {
     if (!g) return;
     g.clearLayers();
     if (!props.tag) return;
-    L.circle([props.tag.lat, props.tag.lon], { radius: 100, color: '#1f3a5a', weight: 2, dashArray: '4 4', fillColor: '#2f6f9f', fillOpacity: 0.18, interactive: false }).addTo(g);
+    L.circle([props.tag.lat, props.tag.lon], { radius: 100, color: '#00405D', weight: 2, dashArray: '4 4', fillColor: '#005378', fillOpacity: 0.18, interactive: false }).addTo(g);
     const icon = L.divIcon({ className: 'pin-wrap', html: '<span class="tag-dot" aria-hidden="true">+</span>', iconSize: [30, 30], iconAnchor: [15, 15] });
     L.marker([props.tag.lat, props.tag.lon], { icon, interactive: false, keyboard: false })
       .bindTooltip(props.tag.label, { permanent: true, direction: 'bottom', offset: [0, 14], className: 'tag-tooltip' })

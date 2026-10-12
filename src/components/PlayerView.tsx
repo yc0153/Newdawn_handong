@@ -144,7 +144,7 @@ export default function PlayerView() {
           {state.playing ? '❚❚' : '▶'}
         </button>
         <button type="button" className="ctrl" onClick={() => dispatch({ type: 'next', ids })} disabled={!canMove} aria-label={t('player.next')}>›</button>
-        <span className="player__status">{state.playing ? t('player.status.playing') : t('player.status.paused')}</span>
+        <span className="player__status">{total === 1 ? t('player.status.single') : state.playing ? t('player.status.playing') : t('player.status.paused')}</span>
         <span className="progress" aria-hidden="true">
           <span key={`${state.currentId}-${state.playing}`} className={state.playing && !reducedMotion ? 'progress__bar progress__bar--run' : 'progress__bar'} style={{ width: state.playing ? undefined : total ? `${((index + 1) / total) * 100}%` : '0%' }} />
         </span>

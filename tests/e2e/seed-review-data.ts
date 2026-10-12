@@ -7,6 +7,8 @@ const rows = [
   { cell_x: 40, cell_y: 44, category: 'transport', summary: '[검수용] 같은 위치의 두 번째 의견: 횡단보도 신호 시간이 짧다는 의견', player: true },
   { cell_x: 35, cell_y: 30, category: 'environment', summary: '[검수용] 공원 쓰레기 분리배출 안내가 한국어로만 있다는 의견', player: true },
   { cell_x: 44, cell_y: 36, category: 'other', summary: '[검수용] 주민센터 이용 시간 안내를 찾기 어렵다는 의견', player: false },
+  // 공개했지만 아직 상영에 넣지 않은 의견(담당자 목록의 '상영 대기' 확인용)
+  { cell_x: 31, cell_y: 40, category: 'transport', summary: '[검수용] 버스 도착 안내 화면이 정류장에 없다는 의견', player: true, queue: true },
 ];
 
 async function main() {
@@ -17,7 +19,7 @@ async function main() {
     const id = await idByReference(s.body.reference);
     let v = (await adminAction(id, { action: 'save_summary', expected_version: 1, summary: r.summary }, op.cookie)).body.version;
     v = (await adminAction(id, { action: 'publish', expected_version: v }, op.cookie)).body.version;
-    if (r.player) await adminAction(id, { action: 'set_player', expected_version: v, include_in_player: true }, op.cookie);
+    if (r.player && !('queue' in r)) await adminAction(id, { action: 'set_player', expected_version: v, include_in_player: true }, op.cookie);
   }
   console.log('seeded', rows.length);
 }

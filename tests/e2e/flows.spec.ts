@@ -363,6 +363,7 @@ test('T12·T13: player 0/1/many, initial stop, 12s cycle, manual move stops, key
   await page.reload();
   await expect(page.locator('.case__summary')).toHaveText('[E2E] 플레이어 사례 1');
   await expect(page.getByRole('button', { name: '재생' })).toBeDisabled();
+  await expect(page.locator('.player__status')).toContainText('2건 이상이면 자동 재생');
 
   data = fake(3);
   await page.reload();
@@ -456,8 +457,15 @@ test('A01: operator reviews, summarises, publishes, includes in player; concurre
   await page.getByRole('button', { name: '지도에 공개' }).click();
   await expect(page.locator('.status--published')).toBeVisible();
   await expect(page.locator('#summary')).toBeDisabled();
-  await page.getByRole('button', { name: '상영에 포함' }).click();
+  // 공개만 하고 상영에 넣지 않으면 상세에 안내가, 목록에 '상영 대기'가 보인다.
+  await expect(page.locator('.callout')).toContainText('플레이어에는 아직 나오지 않습니다');
+  await page.getByRole('link', { name: '← 목록' }).click();
+  await page.getByRole('tab', { name: '공개' }).click();
+  await expect(page.locator('.admin-row', { hasText: text }).locator('.status--queue')).toHaveText('상영 대기');
+  await page.locator('.admin-row', { hasText: text }).click();
+  await page.getByRole('button', { name: '플레이어에도 상영' }).click();
   await expect(page.getByRole('button', { name: '상영에서 빼기' })).toBeVisible();
+  await expect(page.locator('.callout')).toHaveCount(0);
   const pub = await (await page.request.get('/api/public/opinions?mode=player')).json();
   expect(pub.data.find((o: { public_id: string }) => o.public_id === publicId)?.summary).toBe(summary);
   await expect(page.locator('.audit li')).toHaveCount(3);

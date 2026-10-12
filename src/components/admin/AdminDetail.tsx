@@ -114,6 +114,12 @@ export default function AdminDetail({ id, selfId }: { id: string; selfId: string
           {message.kind !== 'ok' ? <button type="button" className="btn btn--small" onClick={() => { setMessage(null); void load(true); }}>최신 내용 불러오기</button> : null}
         </div>
       ) : null}
+      {d.status === 'published' && canPlayer && !d.include_in_player ? (
+        <div className="callout" role="region" aria-label="플레이어 상영 안내">
+          <p><strong>지도에는 공개되었지만 플레이어에는 아직 나오지 않습니다.</strong> 작성자가 플레이어 공개도 선택했습니다. 플레이어에도 상영할까요?</p>
+          <button type="button" className="btn btn--primary" disabled={busy} onClick={() => void act({ action: 'set_player', include_in_player: true }, '상영에 포함했습니다. 플레이어에 바로 반영됩니다.')}>플레이어에도 상영</button>
+        </div>
+      ) : null}
       <div className="admin-detail__grid">
         <section className="card">
           <div className="admin-row__top">
@@ -164,7 +170,7 @@ export default function AdminDetail({ id, selfId }: { id: string; selfId: string
               <button type="button" className="btn" disabled={busy} aria-pressed={d.include_in_player} onClick={() => void act({ action: 'set_player', include_in_player: !d.include_in_player }, d.include_in_player ? '상영에서 뺐습니다.' : '상영에 포함했습니다. 공개 상태일 때 플레이어에 나옵니다.')}>
                 {d.include_in_player ? '상영에서 빼기' : '상영에 포함'}
               </button>
-              <span className="muted small">숨기면 상영 포함도 해제됩니다.</span>
+              <span className="muted small">{d.status === 'published' ? '숨기면 상영 포함도 해제됩니다.' : '공개한 뒤에 플레이어에 나옵니다.'}</span>
             </div>
           ) : <p className="muted small">작성자가 지도와 플레이어 공개를 모두 선택한 의견만 상영할 수 있습니다.</p>}
 
