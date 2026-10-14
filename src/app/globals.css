@@ -198,6 +198,8 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.65; }
 .complete-actions { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 
 /* 카카오 지도 */
+.map-frame:has(.kakao-host) .map-instruction { left: 12px; right: 52px; }
+.map-frame { scroll-margin-top: 84px; }
 .kakao-host:focus-visible { outline: 3px solid var(--primary); outline-offset: -3px; }
 .pin-btn { background: none; border: 0; padding: 0; cursor: pointer; display: block; width: 34px; height: 42px; }
 .pin-btn:focus-visible .pin { outline: 2px solid var(--primary); outline-offset: 3px; }

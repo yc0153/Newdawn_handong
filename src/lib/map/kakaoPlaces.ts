@@ -48,7 +48,8 @@ export async function nearbyAddresses(k: Kakao, lat: number, lon: number, step =
     const prev = seen.get(f.item.id);
     if (!prev || f.dist < prev.dist) seen.set(f.item.id, { item: f.item, dist: f.dist });
   }
-  return [...seen.values()].sort((a, b) => a.dist - b.dist).map((v) => v.item);
+  // 도로명 주소가 있는 건물을 먼저, 그 안에서는 가까운 순서.
+  return [...seen.values()].sort((a, b) => Number(!a.item.road) - Number(!b.item.road) || a.dist - b.dist).map((v) => v.item);
 }
 
 /** 주소 검색 + 장소 이름 검색. rect는 'minLon,minLat,maxLon,maxLat' (포항 범위로 좁힌다). */

@@ -45,7 +45,8 @@ export default function SubmitFlow() {
   const [reloadToken, setReloadToken] = useState(0);
   const attempt = useRef<{ key: string; payload: string } | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const panelWasOpen = useRef(false);
+  const panelWasOpen = useRef<'none' | 'picker' | 'form'>('none');
+  const mapFrameRef = useRef<HTMLDivElement>(null);
   const [kakao, setKakao] = useState<Kakao | null>(null);
   const [place, setPlace] = useState<Place | null>(null);
   const [addrList, setAddrList] = useState<AddressList>({ status: 'ready', items: [] });
@@ -101,11 +102,12 @@ export default function SubmitFlow() {
   }, [allowed]);
 
   useEffect(() => {
-    if ((panelOpen || pickerOpen) && !panelWasOpen.current) {
+    const now = panelOpen ? 'form' : pickerOpen ? 'picker' : 'none';
+    if (now !== 'none' && now !== panelWasOpen.current) {
       headingRef.current?.focus({ preventScroll: true });
       headingRef.current?.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'auto' : 'smooth' });
     }
-    panelWasOpen.current = panelOpen || pickerOpen;
+    panelWasOpen.current = now;
   }, [panelOpen, pickerOpen, reducedMotion]);
 
   // 지도 클릭·Enter: 원좌표는 이 함수 안에서만 쓰고 격자 번호만 남긴다.
@@ -129,7 +131,7 @@ export default function SubmitFlow() {
     setErrors((e) => ({ ...e, location: undefined }));
     if (kakao) {
       // 주변 주소는 카카오에 직접 묻는다. 누른 좌표는 이 요청에만 쓰고 우리 서버로 보내지 않는다.
-      panelWasOpen.current = false;
+      panelWasOpen.current = 'none';
       setPlace({ stage: 'list' });
       setQuery('');
       setAddrList({ status: 'loading', items: [] });
@@ -157,7 +159,11 @@ export default function SubmitFlow() {
     setLocationNotice(null);
     setPlace({ stage: 'view', item: it });
     setFocus((f) => ({ lat: it.lat, lon: it.lon, zoom: 17, token: (f?.token ?? 0) + 1 }));
-  }, [allowed]);
+    // 좁은 화면에서는 지도·로드뷰가 목록 위에 있으므로 로드뷰가 보이게 올린다.
+    if (window.matchMedia('(max-width: 860px)').matches) {
+      requestAnimationFrame(() => mapFrameRef.current?.scrollIntoView({ block: 'start', behavior: reducedMotion ? 'auto' : 'smooth' }));
+    }
+  }, [allowed, reducedMotion]);
 
   const tag = useMemo(() => {
     if (!cell) return null;
@@ -262,7 +268,7 @@ export default function SubmitFlow() {
   return (
     <div className="explorer explorer--submit">
       <section className="card map-card" aria-label={t('map.ariaSubmit')}>
-        <div className="map-frame map-frame--tall">
+        <div className="map-frame map-frame--tall" ref={mapFrameRef}>
           <MapView
             provider={provider}
             ariaLabel={t('map.ariaSubmit')}
