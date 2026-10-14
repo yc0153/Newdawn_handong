@@ -44,6 +44,7 @@ npm run dev              # http://localhost:3000
 | --- | --- |
 | `npm run test:unit`, `npm run test:db` | 없음 |
 | `npm run test:integration` | 로컬 Supabase + 실행 중인 Next 서버. 서버와 테스트 모두 `TRUSTED_CLIENT_IP_HEADER=x-test-client-ip`로 실행(테스트마다 다른 클라이언트로 보이게 함) |
+| `npm run test:e2e:kakao` | 위 준비 + 가짜 카카오 SDK로 만든 두 번째 빌드(:3100). 명령은 `playwright.kakao.config.ts` 머리말 참고 |
 | `npm run test:e2e` | 위와 같음 + 검수용 타일 서버 `npm run tiles:test` + `.env.local`에 `NEXT_PUBLIC_MAP_TILE_URL=http://127.0.0.1:8099/{z}/{x}/{y}.svg`, `NEXT_PUBLIC_MAP_ATTRIBUTION=검수용 테스트 타일` 후 빌드 |
 
 연결·E2E 테스트는 로컬 DB에 `[연결검수]`·`[E2E]` 표시가 붙은 검수 데이터를 남긴다. 다시 깨끗하게 하려면 `supabase db reset --local`.
@@ -60,6 +61,8 @@ npm run dev              # http://localhost:3000
 | APP_ORIGIN | Same Origin POST검사 | 배포 도메인과 일치 |
 | RATE_LIMIT_HMAC_SECRET | 일일 IP 제한 HMAC | 충분한 길이의 임의 값 |
 | TRUSTED_CLIENT_IP_HEADER | 플랫폼이 보장한 client IP header | 헤더명과 신뢰 proxy 동작을 직접 검증 |
+| NEXT_PUBLIC_KAKAO_MAP_KEY | 카카오 지도 JavaScript 키(로드뷰·주소 검색). 있으면 카카오 지도, 불러오기 실패 시 타일 지도로 대체 | 카카오 개발자 콘솔에서 사이트 도메인 등록, 카카오맵 사용 설정 ON. REST·Admin 키는 넣지 않음 |
+| NEXT_PUBLIC_KAKAO_SDK_URL | 카카오 SDK 주소(검수용 가짜 SDK에만 사용) | 운영에서는 비움 |
 | NEXT_PUBLIC_MAP_TILE_URL | 확정 지도 공급자 타일 URL | Leaflet provider에 해당할 때만 사용 |
 | NEXT_PUBLIC_MAP_ATTRIBUTION | 지도 출처 | 공급자 약관에 맞춰 표시 |
 | NEXT_PUBLIC_ENV_LABEL | 헤더의 환경 표시(선택) | 운영에서는 비움 |

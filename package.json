@@ -18,7 +18,8 @@
     "test:e2e": "playwright test",
     "tiles:test": "node tests/e2e/tile-server.mjs",
     "operator:local": "node --env-file=.env.local scripts/create-local-operator.mjs",
-    "local:setup": "node scripts/local-setup.mjs"
+    "local:setup": "node scripts/local-setup.mjs",
+    "test:e2e:kakao": "playwright test -c playwright.kakao.config.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

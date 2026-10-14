@@ -3,27 +3,11 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { cellOutline, cornerLatLng, mergeCells } from '@/lib/domain/grid';
-import type { Category } from '@/lib/domain/types';
-import { INITIAL_VIEW, type MapProvider } from '@/lib/map/provider';
+import { INITIAL_VIEW, type TileProvider } from '@/lib/map/provider';
+import type { MapProps } from './types';
 
-export type PinGroup = { key: string; lat: number; lon: number; count: number; category: Category; active: boolean; label: string };
-
-export type LeafletMapProps = {
-  provider: MapProvider | null;
-  ariaLabel: string;
-  groups?: PinGroup[];
-  onPinSelect?: (key: string) => void;
-  allowedCells?: { cell_x: number; cell_y: number }[];
-  tag?: { lat: number; lon: number; label: string } | null;
-  /** 클릭·Enter 위치. 받는 쪽은 즉시 격자로 바꾸고 원좌표를 보관하지 않는다. */
-  onPick?: (lat: number, lon: number) => void;
-  focus?: { lat: number; lon: number; zoom?: number; token: number } | null;
-  fit?: 'allowed' | 'pins' | null;
-  reducedMotion?: boolean;
-  onTileStatus?: (status: 'ok' | 'failed') => void;
-  reloadToken?: number;
-  compact?: boolean;
-};
+export type { PinGroup } from './types';
+export type LeafletMapProps = Omit<MapProps, 'provider'> & { provider: TileProvider | null };
 
 export default function LeafletMap(props: LeafletMapProps) {
   const el = useRef<HTMLDivElement>(null);

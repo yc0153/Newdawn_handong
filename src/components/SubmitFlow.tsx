@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MapView from './map/MapView';
+import PlacePicker, { type AddressList } from './PlacePicker';
+import RoadviewPane from './RoadviewPane';
 import { useI18n } from './I18nProvider';
 import { useReducedMotion } from '@/lib/client/useReducedMotion';
 import { CATEGORY_KEYS, CATEGORY_ORDER } from '@/lib/client/categories';
@@ -12,10 +14,14 @@ import { textLengths } from '@/lib/domain/validation';
 import type { Category, Language, PublicConfig } from '@/lib/domain/types';
 import type { MessageKey } from '@/lib/i18n/messages';
 import { mapProvider } from '@/lib/map/provider';
+import { loadKakao, type Kakao } from '@/lib/map/kakao';
+import { nearbyAddresses, searchAddresses, type AddressItem } from '@/lib/map/kakaoPlaces';
 
 type Draft = { category: Category | ''; language: Language | ''; text: string; allowMap: boolean; allowPlayer: boolean };
 type FieldErrors = Partial<Record<'category' | 'language' | 'text' | 'location', MessageKey>>;
 type Cell = { cell_x: number; cell_y: number };
+// 카카오 지도일 때만: 주소 목록 → 로드뷰 → 핀 → 의견. 저장은 칸 번호만.
+type Place = { stage: 'list' } | { stage: 'view'; item: AddressItem } | { stage: 'pinned'; item: AddressItem } | { stage: 'skipped' };
 
 const EMPTY: Draft = { category: '', language: '', text: '', allowMap: false, allowPlayer: false };
 const TIMEOUT_MS = 10_000;
@@ -40,6 +46,19 @@ export default function SubmitFlow() {
   const attempt = useRef<{ key: string; payload: string } | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const panelWasOpen = useRef(false);
+  const [kakao, setKakao] = useState<Kakao | null>(null);
+  const [place, setPlace] = useState<Place | null>(null);
+  const [addrList, setAddrList] = useState<AddressList>({ status: 'ready', items: [] });
+  const [query, setQuery] = useState('');
+  const [focus, setFocus] = useState<{ lat: number; lon: number; zoom?: number; token: number } | null>(null);
+  const lookup = useRef(0);
+
+  useEffect(() => {
+    if (provider?.kind !== 'kakao') return;
+    let cancelled = false;
+    loadKakao(provider.appKey, provider.sdkUrl).then((k) => { if (!cancelled) setKakao(k); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [provider]);
 
   const loadConfig = useCallback(async () => {
     setConfig((c) => ({ status: 'loading', data: c.data }));
@@ -58,15 +77,31 @@ export default function SubmitFlow() {
 
   const allowed = useMemo(() => new Set((config.data?.allowed_cells ?? []).map((c) => cellKey(c.cell_x, c.cell_y))), [config.data]);
   const open = config.status === 'ready' && !!config.data?.submissions_enabled && allowed.size > 0;
-  const panelOpen = open && cell !== null && !choosing;
+  const placeMode = kakao !== null;
+  const placeDone = !placeMode || place?.stage === 'pinned' || place?.stage === 'skipped';
+  const pickerOpen = open && cell !== null && !choosing && placeMode && !placeDone;
+  const panelOpen = open && cell !== null && !choosing && placeDone;
+  const placeItem = place && (place.stage === 'view' || place.stage === 'pinned') ? place.item : null;
+  const areaRect = useMemo(() => {
+    const cells = config.data?.allowed_cells ?? [];
+    if (cells.length === 0) return undefined;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const c of cells) { minX = Math.min(minX, c.cell_x); minY = Math.min(minY, c.cell_y); maxX = Math.max(maxX, c.cell_x); maxY = Math.max(maxY, c.cell_y); }
+    const sw = representative({ grid_version: GRID_VERSION, cell_x: minX, cell_y: minY });
+    const ne = representative({ grid_version: GRID_VERSION, cell_x: maxX, cell_y: maxY });
+    return `${sw.lon},${sw.lat},${ne.lon},${ne.lat}`;
+  }, [config.data]);
+  const itemAllowed = useCallback((it: AddressItem) => {
+    try { const q = quantize(it.lat, it.lon); return allowed.has(cellKey(q.cell_x, q.cell_y)); } catch { return false; }
+  }, [allowed]);
 
   useEffect(() => {
-    if (panelOpen && !panelWasOpen.current) {
+    if ((panelOpen || pickerOpen) && !panelWasOpen.current) {
       headingRef.current?.focus({ preventScroll: true });
       headingRef.current?.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'auto' : 'smooth' });
     }
-    panelWasOpen.current = panelOpen;
-  }, [panelOpen, reducedMotion]);
+    panelWasOpen.current = panelOpen || pickerOpen;
+  }, [panelOpen, pickerOpen, reducedMotion]);
 
   // 지도 클릭·Enter: 원좌표는 이 함수 안에서만 쓰고 격자 번호만 남긴다.
   const onPick = useCallback((lat: number, lon: number) => {
@@ -87,7 +122,37 @@ export default function SubmitFlow() {
     setChoosing(false);
     setLocationNotice(null);
     setErrors((e) => ({ ...e, location: undefined }));
-  }, [allowed, open, submitting, done]);
+    if (kakao) {
+      // 주변 주소는 카카오에 직접 묻는다. 누른 좌표는 이 요청에만 쓰고 우리 서버로 보내지 않는다.
+      panelWasOpen.current = false;
+      setPlace({ stage: 'list' });
+      setQuery('');
+      setAddrList({ status: 'loading', items: [] });
+      const id = ++lookup.current;
+      nearbyAddresses(kakao, lat, lon)
+        .then((items) => { if (lookup.current === id) setAddrList({ status: 'ready', items }); })
+        .catch(() => { if (lookup.current === id) setAddrList({ status: 'error', items: [] }); });
+    }
+  }, [allowed, open, submitting, done, kakao]);
+
+  const runSearch = useCallback(() => {
+    if (!kakao || !query.trim()) return;
+    const id = ++lookup.current;
+    setAddrList((l) => ({ status: 'loading', items: l.items }));
+    searchAddresses(kakao, query, areaRect)
+      .then((items) => { if (lookup.current === id) setAddrList({ status: 'ready', items }); })
+      .catch(() => { if (lookup.current === id) setAddrList({ status: 'error', items: [] }); });
+  }, [kakao, query, areaRect]);
+
+  const selectItem = useCallback((it: AddressItem) => {
+    let q;
+    try { q = quantize(it.lat, it.lon); } catch { return; }
+    if (!allowed.has(cellKey(q.cell_x, q.cell_y))) { setLocationNotice('submit.outside'); return; }
+    setCell({ cell_x: q.cell_x, cell_y: q.cell_y });
+    setLocationNotice(null);
+    setPlace({ stage: 'view', item: it });
+    setFocus((f) => ({ lat: it.lat, lon: it.lon, zoom: 17, token: (f?.token ?? 0) + 1 }));
+  }, [allowed]);
 
   const tag = useMemo(() => {
     if (!cell) return null;
@@ -200,10 +265,21 @@ export default function SubmitFlow() {
             tag={tag}
             onPick={onPick}
             fit="allowed"
+            focus={focus}
             reducedMotion={reducedMotion}
             onTileStatus={setTileStatus}
             reloadToken={reloadToken}
           />
+          {kakao && placeItem && cell && !choosing ? (
+            <RoadviewPane
+              kakao={kakao}
+              item={placeItem}
+              pinned={place?.stage === 'pinned'}
+              onPin={() => setPlace({ stage: 'pinned', item: placeItem })}
+              onRepin={() => setPlace({ stage: 'view', item: placeItem })}
+              onBack={() => setPlace({ stage: 'list' })}
+            />
+          ) : null}
           {open ? (
             <div className={`map-instruction${locationNotice ? ' map-instruction--error' : ''}`} role={locationNotice ? 'alert' : 'status'}>
               {locationNotice ? t(locationNotice) : choosing ? t('submit.reselect') : !cell ? t('submit.instruction') : t('submit.picked')}
@@ -228,7 +304,8 @@ export default function SubmitFlow() {
       <aside className="card side-panel submit-panel" aria-labelledby="panel-heading">
         <ol className="steps">
           <li className={cell ? 'done' : 'current'}><span>1</span> {t('panel.step1')}</li>
-          <li className={panelOpen ? 'current' : ''}><span>2</span> {t('panel.step2')}</li>
+          {placeMode ? <li className={pickerOpen ? 'current' : panelOpen ? 'done' : ''}><span>2</span> {t('place.step')}</li> : null}
+          <li className={panelOpen ? 'current' : ''}><span>{placeMode ? 3 : 2}</span> {t('panel.step2')}</li>
         </ol>
         {config.status === 'loading' && !config.data ? <p className="state" role="status" aria-busy="true">…</p> : null}
         {config.status === 'error' ? (
@@ -244,7 +321,20 @@ export default function SubmitFlow() {
             <Link href="/map" className="btn btn--small">{t('complete.toMap')}</Link>
           </div>
         ) : null}
-        {open && !panelOpen ? (
+        {pickerOpen ? (
+          <PlacePicker
+            list={addrList}
+            query={query}
+            onQuery={setQuery}
+            onSearch={runSearch}
+            onSelect={selectItem}
+            onSkip={() => setPlace({ stage: 'skipped' })}
+            isAllowed={itemAllowed}
+            selectedId={placeItem?.id ?? null}
+            headingRef={headingRef}
+          />
+        ) : null}
+        {open && !panelOpen && !pickerOpen ? (
           <div className="panel-placeholder">
             <h2 id="panel-heading" tabIndex={-1} ref={headingRef}>{choosing ? t('submit.reselect') : t('submit.instruction')}</h2>
             <p className="muted">{t('submit.privacyPlace')}</p>
@@ -256,11 +346,11 @@ export default function SubmitFlow() {
             <div className={`location-box${errors.location ? ' location-box--error' : ''}`}>
               <span className="location-box__icon" aria-hidden="true">⌖</span>
               <span className="location-box__text">
-                <strong>{t('panel.location')}</strong>
-                <span className="muted">{t('panel.locationHelp')}</span>
+                <strong>{placeItem ? (placeItem.name ?? placeItem.road ?? placeItem.jibun) : t('panel.location')}</strong>
+                <span className="muted">{placeItem ? t('place.savedNote') : t('panel.locationHelp')}</span>
                 {errors.location ? <span className="field-error" role="alert">{t(errors.location)}</span> : null}
               </span>
-              <button id="change-location" type="button" className="link-btn" onClick={() => { setChoosing(true); setLocationNotice(null); }} disabled={submitting}>{t('panel.change')}</button>
+              <button id="change-location" type="button" className="link-btn" onClick={() => { setChoosing(true); setPlace(null); setLocationNotice(null); }} disabled={submitting}>{t('panel.change')}</button>
             </div>
             <p className="hint">{t('submit.privacyPlace')}</p>
 

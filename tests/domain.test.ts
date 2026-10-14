@@ -62,3 +62,25 @@ test('allowed-area outline merges edges and keeps holes', async () => {
   const [lat, lon] = cornerLatLng(40.5, 44.5);
   assert.deepEqual(q(lat, lon), { grid_version: 'pohang-v1', cell_x: 40, cell_y: 44 });
 });
+
+test('allowed-area rings: outer counter-clockwise, holes clockwise, pinch corners close', async () => {
+  const { cellRings } = await import('../src/lib/domain/grid');
+  const area = (r: [number, number][]) => r.reduce((s, p, i) => { const q = r[(i + 1) % r.length]; return s + p[0] * q[1] - q[0] * p[1]; }, 0) / 2;
+  const two = cellRings([{ cell_x: 0, cell_y: 0 }, { cell_x: 1, cell_y: 0 }]);
+  assert.equal(two.length, 1);
+  assert.equal(two[0].outer.length, 4);
+  assert.equal(area(two[0].outer), 2);
+  const ring = [];
+  for (let x = 0; x < 3; x++) for (let y = 0; y < 3; y++) if (x !== 1 || y !== 1) ring.push({ cell_x: x, cell_y: y });
+  const withHole = cellRings(ring);
+  assert.equal(withHole.length, 1);
+  assert.equal(area(withHole[0].outer), 9);
+  assert.equal(withHole[0].holes.length, 1);
+  assert.equal(area(withHole[0].holes[0]), -1);
+  // 대각선으로만 맞닿은 두 칸: 고리 2개로 닫힌다.
+  const pinch = cellRings([{ cell_x: 0, cell_y: 0 }, { cell_x: 1, cell_y: 1 }]);
+  assert.equal(pinch.length, 2);
+  assert.deepEqual(pinch.map((p) => area(p.outer)), [1, 1]);
+  // 떨어진 두 덩어리
+  assert.equal(cellRings([{ cell_x: 0, cell_y: 0 }, { cell_x: 5, cell_y: 5 }]).length, 2);
+});

@@ -197,6 +197,53 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.65; }
 .reference { font-size: 16px; font-variant-numeric: tabular-nums; letter-spacing: .02em; word-break: break-all; }
 .complete-actions { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 
+/* 카카오 지도 */
+.kakao-host:focus-visible { outline: 3px solid var(--primary); outline-offset: -3px; }
+.pin-btn { background: none; border: 0; padding: 0; cursor: pointer; display: block; width: 34px; height: 42px; }
+.pin-btn:focus-visible .pin { outline: 2px solid var(--primary); outline-offset: 3px; }
+.kakao-tag { display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+.kakao-tag__label { background: var(--navy); color: #fff; font-weight: 600; font-size: 13px; padding: 4px 10px; border-radius: 3px; white-space: nowrap; }
+
+/* 주소 고르기 */
+.place-picker { display: flex; flex-direction: column; gap: 12px; }
+.submit-panel .place-search, .place-search { display: flex; flex-direction: row; gap: 0; border: 1px solid var(--line-input); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.place-search:focus-within { outline: 2px solid var(--primary); outline-offset: 1px; }
+.place-search input { flex: 1; min-width: 0; width: auto; border: 0; padding: 0 14px; min-height: 46px; color: var(--ink); font: inherit; background: transparent; outline: none; }
+.place-search input:focus-visible { outline: none; }
+.place-search__btn { width: 48px; min-height: 46px; border: 0; border-left: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+.place-search__btn:hover { color: var(--primary); }
+.addr-head { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; border-bottom: 1px solid var(--line); padding: 4px 2px 8px; }
+.addr-list { list-style: none; margin: 0; padding: 0; max-height: 380px; overflow-y: auto; }
+.addr-list li + li { border-top: 1px solid var(--line); }
+.addr-item { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: left; background: none; border: 0; border-left: 3px solid transparent; padding: 12px 8px; font: inherit; color: var(--ink); cursor: pointer; }
+.addr-item:hover:not(:disabled) { background: #fafaf8; }
+.addr-item--on { background: var(--primary-tint); border-left-color: var(--primary); }
+.addr-item:disabled { cursor: not-allowed; opacity: .6; }
+.addr-item__main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.addr-item__name { font-size: 15px; }
+.addr-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; line-height: 1.45; }
+.addr-badge { display: inline-block; font-size: 12px; font-weight: 700; color: #fff; background: #67675f; border-radius: 999px; padding: 1px 8px; flex: none; }
+.addr-badge--road { background: #2b6f9e; }
+.addr-item__zip { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.addr-item__out { font-size: 12px; color: var(--err-ink); font-weight: 600; }
+.place-skip { align-self: flex-start; }
+
+/* 로드뷰 */
+.roadview { position: absolute; inset: 0; z-index: 700; display: flex; flex-direction: column; background: var(--surface); }
+.roadview__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.roadview__title { font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 6px; min-width: 0; }
+.roadview__title strong { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eyebrow-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex: none; }
+.roadview__stage { position: relative; flex: 1; min-height: 0; background: #1b2a33; }
+.roadview__view { position: absolute; inset: 0; }
+.roadview__pin { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -100%); pointer-events: none; z-index: 2; filter: drop-shadow(0 2px 4px rgba(0,0,0,.35)); }
+.roadview__pin .pin { width: 38px; height: 38px; }
+.roadview__pin .pin__n { font-size: 20px; }
+.roadview__pin--set .pin { --c: var(--primary); box-shadow: 0 0 0 4px rgba(255,255,255,.85), 0 2px 6px rgba(0,0,0,.3); }
+.roadview__msg { position: absolute; inset: 0; margin: 0; display: grid; place-items: center; color: #fff; font-weight: 600; padding: 16px; text-align: center; }
+.roadview__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; padding: 10px 12px; border-top: 1px solid var(--line); }
+.roadview__ok { color: var(--ok-ink, #24693F); font-weight: 600; }
+
 /* 플레이어 */
 .player { min-height: 100vh; background: var(--navy); color: #f2f6f8; display: flex; flex-direction: column; padding: 16px 28px 12px; gap: 16px; }
 .player__bar { display: flex; align-items: center; gap: 12px 24px; flex-wrap: wrap; border-bottom: 1px solid rgba(184,213,227,.18); padding-bottom: 12px; }

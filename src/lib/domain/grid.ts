@@ -72,3 +72,57 @@ export function cellOutline(cells:{cell_x:number;cell_y:number}[]):[[number,numb
   join(vt,(x,a,b)=>[[x,a],[x,b]]);
   return out;
 }
+/**
+ * 허용 칸들의 경계를 닫힌 고리(꼭짓점 목록, 모서리 좌표)로 돌려준다.
+ * 바깥 고리는 반시계(넓이 +), 구멍은 시계(넓이 −) 방향이다. 직선 위 중간 꼭짓점은 뺀다.
+ * 카카오 지도처럼 "바깥 + 구멍" 다각형만 그릴 수 있는 지도에서 쓴다.
+ */
+export type Ring = [number, number][];
+export function cellRings(cells:{cell_x:number;cell_y:number}[]):{outer:Ring;holes:Ring[]}[] {
+  const has=new Set(cells.map(c=>cellKey(c.cell_x,c.cell_y)));
+  const vk=(x:number,y:number)=>`${x},${y}`;
+  type Edge={a:[number,number];b:[number,number];used:boolean};
+  const from=new Map<string,Edge[]>();
+  const add=(a:[number,number],b:[number,number])=>{const e={a,b,used:false};const k=vk(a[0],a[1]);const l=from.get(k);if(l)l.push(e);else from.set(k,[e]);};
+  for(const k of has){
+    const [x,y]=k.split(':').map(Number);
+    // 칸이 진행 방향 왼쪽에 오도록 방향을 정한다.
+    if(!has.has(cellKey(x,y-1)))add([x,y],[x+1,y]);
+    if(!has.has(cellKey(x+1,y)))add([x+1,y],[x+1,y+1]);
+    if(!has.has(cellKey(x,y+1)))add([x+1,y+1],[x,y+1]);
+    if(!has.has(cellKey(x-1,y)))add([x,y+1],[x,y]);
+  }
+  const rings:Ring[]=[];
+  for(const list of from.values())for(const start of list){
+    if(start.used)continue;
+    const pts:Ring=[];let e=start;
+    for(let guard=0;guard<4*has.size+8;guard++){
+      e.used=true;pts.push(e.a);
+      if(e.b[0]===start.a[0]&&e.b[1]===start.a[1])break;
+      const cand=(from.get(vk(e.b[0],e.b[1]))??[]).filter(n=>!n.used);
+      if(cand.length===0)break;
+      // 꼭짓점이 맞닿은 곳에서는 왼쪽으로 꺾는 변을 골라 고리를 작게 닫는다.
+      const dx=e.b[0]-e.a[0],dy=e.b[1]-e.a[1];
+      cand.sort((p,q)=>{const turn=(n:Edge)=>{const nx=n.b[0]-n.a[0],ny=n.b[1]-n.a[1];return dx*ny-dy*nx;};return turn(q)-turn(p);});
+      e=cand[0];
+    }
+    // 같은 직선 위 꼭짓점 제거
+    const simple:Ring=[];
+    for(let i=0;i<pts.length;i++){
+      const p=pts[(i-1+pts.length)%pts.length],c=pts[i],n=pts[(i+1)%pts.length];
+      if((c[0]-p[0])*(n[1]-c[1])-(c[1]-p[1])*(n[0]-c[0])!==0)simple.push(c);
+    }
+    rings.push(simple);
+  }
+  const area=(r:Ring)=>r.reduce((s,p,i)=>{const q=r[(i+1)%r.length];return s+p[0]*q[1]-q[0]*p[1];},0)/2;
+  const inside=(pt:[number,number],r:Ring)=>{let c=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const [xi,yi]=r[i],[xj,yj]=r[j];if((yi>pt[1])!==(yj>pt[1])&&pt[0]<(xj-xi)*(pt[1]-yi)/(yj-yi)+xi)c=!c;}return c;};
+  const outers=rings.filter(r=>area(r)>0).map(r=>({outer:r,holes:[] as Ring[],a:area(r)})).sort((p,q)=>p.a-q.a);
+  for(const h of rings.filter(r=>area(r)<0)){
+    // 구멍 안쪽 점: 첫 변 가운데에서 진행 방향 오른쪽(칸이 없는 쪽)으로 조금
+    const [a,b]=[h[0],h[1]];const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2;const len=Math.hypot(b[0]-a[0],b[1]-a[1])||1;
+    const pt:[number,number]=[mx+(b[1]-a[1])/len*0.25,my-(b[0]-a[0])/len*0.25];
+    const owner=outers.find(o=>inside(pt,o.outer));
+    if(owner)owner.holes.push(h);
+  }
+  return outers.map(({outer,holes})=>({outer,holes}));
+}

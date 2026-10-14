@@ -1,10 +1,16 @@
 // 검수용 로컬 지도 타일. 실제 지도가 아니라 "TEST TILE" 격자 이미지다(외부 타일 서버 접근이 막힌 검수 환경용).
 import http from 'node:http';
+import { readFileSync } from 'node:fs';
+const kakaoMock = new URL('./kakao-mock.js', import.meta.url);
 const port = Number(process.env.TILE_PORT ?? 8099);
 http.createServer((req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204, { 'access-control-allow-origin': '*', 'access-control-allow-headers': req.headers['access-control-request-headers'] ?? '*', 'access-control-allow-methods': 'GET' });
     return res.end();
+  }
+  if (req.url.split('?')[0] === '/kakao-mock.js') {
+    res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store', 'access-control-allow-origin': '*' });
+    return res.end(readFileSync(kakaoMock));
   }
   const m = req.url.match(/^\/(\d+)\/(\d+)\/(\d+)\.svg$/);
   if (!m) { res.writeHead(404); return res.end(); }

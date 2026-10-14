@@ -4,5 +4,5 @@ import ts from 'typescript-eslint';
 export default defineConfig([
   ...ts.configs.recommended,
   next.configs['core-web-vitals'],
-  globalIgnores(['.next/**','next-env.d.ts','test-results/**','playwright-report/**']),
+  globalIgnores(['.next/**','.next-kakao/**','tests/e2e/kakao-mock.js','next-env.d.ts','test-results/**','playwright-report/**']),
 ]);

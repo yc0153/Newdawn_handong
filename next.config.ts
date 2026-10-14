@@ -12,6 +12,8 @@ const common = [
 ];
 
 const config: NextConfig = {
+  // 검수용으로 설정이 다른 두 번째 빌드를 나란히 둘 때만 바꾼다(기본 .next).
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   reactStrictMode: true,
   poweredByHeader: false,
   async headers() {
