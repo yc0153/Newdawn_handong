@@ -118,7 +118,7 @@ export default function RoadviewPane(props: {
     pinOverlay.current?.setMap(null);
     const overlay = new kakao.maps.CustomOverlay({ content, xAnchor: 0.5, yAnchor: 1, zIndex: 5 });
     pinOverlay.current = overlay;
-    // 큰 핀은 카카오가 기준점을 시험 오버레이와 조금 다르게 잡으므로, 핀 자체 위치를 재서 맞춘다.
+    // 안전장치: 핀 자체 위치를 다시 재서 어긋나 있으면 맞춘다(오버레이 크기에 따라 기준점이 다를 수 있음).
     for (let i = 0; i < 3; i++) {
       const at = await placeAt(overlay, content, dir);
       if (!at || !J || Math.hypot(at.x - x, at.y - y) < 1.5) break;

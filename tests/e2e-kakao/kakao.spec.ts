@@ -62,6 +62,8 @@ test('K01: map click lists nearby addresses; search, roadview pin and submit sen
     const cx = view.x + view.width * fx, cy = view.y + view.height * fy;
     await page.mouse.click(cx, cy);
     await expect(page.locator('.roadview__catch')).toHaveCount(0);
+    // 핀을 꽂아 안내문·버튼이 바뀌어도 로드뷰 크기는 그대로(크기가 바뀌면 장면이 다시 맞춰져 핀이 움직여 보인다)
+    expect(await page.locator('.roadview__view').boundingBox()).toEqual(view);
     await expect(pin).toHaveCount(1);
     await expect.poll(async () => {
       const b = (await pin.boundingBox())!;

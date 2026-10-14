@@ -245,7 +245,10 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.65; }
 .roadview__droppin .pin { width: 38px; height: 38px; margin: 0; --c: var(--primary); box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 2px 6px rgba(0,0,0,.3); }
 .roadview__droppin .pin__n { font-size: 20px; }
 .roadview__msg { position: absolute; inset: 0; margin: 0; display: grid; place-items: center; color: #fff; font-weight: 600; padding: 16px; text-align: center; }
-.roadview__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; padding: 10px 12px; border-top: 1px solid var(--line); }
+.roadview__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; align-content: center; padding: 10px 12px; border-top: 1px solid var(--line); min-height: 64px; }
+/* 핀을 꽂는 순간 안내문·버튼이 바뀌어도 로드뷰 높이가 변하지 않게(높이가 바뀌면 장면이 다시 맞춰져 핀이 움직여 보인다) */
+@media (max-width: 1180px) { .roadview__foot { min-height: 108px; } }
+@media (max-width: 600px) { .roadview__foot { min-height: 170px; } }
 .roadview__ok { color: var(--ok-ink, #24693F); font-weight: 600; }
 
 /* 플레이어 */
