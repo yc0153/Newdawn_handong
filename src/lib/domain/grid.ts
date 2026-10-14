@@ -41,3 +41,34 @@ export function mergeCells(cells:{cell_x:number;cell_y:number}[]):{x0:number;x1:
   }
   return [...done,...open.values()];
 }
+/** 격자 모서리 (x, y)의 위경도. 칸 (x, y)는 모서리 (x, y)~(x+1, y+1) 사이다. */
+export function cornerLatLng(x:number,y:number):[number,number] {
+  return [ORIGIN_LAT+y*SIZE/R/RAD, ORIGIN_LON+x*SIZE/(R*Math.cos(REF_LAT*RAD))/RAD];
+}
+/**
+ * 허용 영역의 바깥 테두리(구멍 포함)를 모서리 좌표 선분으로 돌려준다.
+ * 이웃 칸이 없는 변만 모은 뒤 같은 줄에서 이어지는 변을 하나로 합친다(그리기용).
+ */
+export function cellOutline(cells:{cell_x:number;cell_y:number}[]):[[number,number],[number,number]][] {
+  const has=new Set(cells.map(c=>cellKey(c.cell_x,c.cell_y)));
+  const hz=new Map<number,number[]>(), vt=new Map<number,number[]>();
+  const add=(m:Map<number,number[]>,k:number,v:number)=>{const a=m.get(k);if(a)a.push(v);else m.set(k,[v]);};
+  for(const k of has){
+    const [x,y]=k.split(':').map(Number);
+    if(!has.has(cellKey(x,y-1)))add(hz,y,x);      // 아래 변: y줄, x~x+1
+    if(!has.has(cellKey(x,y+1)))add(hz,y+1,x);    // 위 변
+    if(!has.has(cellKey(x-1,y)))add(vt,x,y);      // 왼쪽 변: x줄, y~y+1
+    if(!has.has(cellKey(x+1,y)))add(vt,x+1,y);    // 오른쪽 변
+  }
+  const out:[[number,number],[number,number]][]=[];
+  const join=(m:Map<number,number[]>,mk:(line:number,a:number,b:number)=>[[number,number],[number,number]])=>{
+    for(const [line,vs] of m){
+      const s=[...new Set(vs)].sort((a,b)=>a-b);let start=s[0],prev=s[0];
+      for(const v of s.slice(1)){if(v===prev+1){prev=v;continue;}out.push(mk(line,start,prev+1));start=prev=v;}
+      out.push(mk(line,start,prev+1));
+    }
+  };
+  join(hz,(y,a,b)=>[[a,y],[b,y]]);
+  join(vt,(x,a,b)=>[[x,a],[x,b]]);
+  return out;
+}

@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { cellBounds, GRID_VERSION, mergeCells } from '@/lib/domain/grid';
+import { cellOutline, cornerLatLng, mergeCells } from '@/lib/domain/grid';
 import type { Category } from '@/lib/domain/types';
 import { INITIAL_VIEW, type MapProvider } from '@/lib/map/provider';
 
@@ -116,14 +116,18 @@ export default function LeafletMap(props: LeafletMapProps) {
     g.clearLayers();
     const cells = props.allowedCells ?? [];
     if (cells.length === 0) return;
-    let bounds: L.LatLngBounds | null = null;
-    for (const r of mergeCells(cells)) {
-      const sw = cellBounds({ grid_version: GRID_VERSION, cell_x: r.x0, cell_y: r.y0 })[0];
-      const ne = cellBounds({ grid_version: GRID_VERSION, cell_x: r.x1, cell_y: r.y1 })[1];
-      const b = L.latLngBounds(sw, ne);
-      L.rectangle(b, { color: '#005378', weight: 1, opacity: 0.6, fillColor: '#005378', fillOpacity: 0.12, interactive: false }).addTo(g);
-      bounds = bounds ? bounds.extend(b) : b;
-    }
+    // 칸 수천 개를 하나의 채움 도형(테두리 없음) + 실제 경계선 한 줄로 그린다.
+    const rects = mergeCells(cells).map((r) => {
+      const sw = cornerLatLng(r.x0, r.y0);
+      const ne = cornerLatLng(r.x1 + 1, r.y1 + 1);
+      return [[sw, [sw[0], ne[1]], ne, [ne[0], sw[1]]]] as L.LatLngExpression[][];
+    });
+    L.polygon(rects, { stroke: false, fillColor: '#005378', fillOpacity: 0.12, interactive: false, smoothFactor: 0 }).addTo(g);
+    const lines = cellOutline(cells).map(([a, b]) => [cornerLatLng(a[0], a[1]), cornerLatLng(b[0], b[1])] as L.LatLngExpression[]);
+    L.polyline(lines, { color: '#005378', weight: 1.5, opacity: 0.6, interactive: false, smoothFactor: 0 }).addTo(g);
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const c of cells) { minX = Math.min(minX, c.cell_x); minY = Math.min(minY, c.cell_y); maxX = Math.max(maxX, c.cell_x); maxY = Math.max(maxY, c.cell_y); }
+    const bounds: L.LatLngBounds | null = L.latLngBounds(cornerLatLng(minX, minY), cornerLatLng(maxX + 1, maxY + 1));
     if (bounds && props.fit === 'allowed' && !fitted.current) {
       fitted.current = true;
       m.invalidateSize({ pan: false });

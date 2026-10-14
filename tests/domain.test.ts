@@ -47,3 +47,18 @@ test('player circular navigation handles zero, one, reverse and last item',()=>{
   assert.equal(nextIndex(0,0,1),null);assert.equal(nextIndex(0,1,1),0);
   assert.equal(nextIndex(0,3,-1),2);assert.equal(nextIndex(2,3,1),0);
 });
+
+test('allowed-area outline merges edges and keeps holes', async () => {
+  const { cellOutline, cornerLatLng, quantize: q } = await import('../src/lib/domain/grid');
+  const norm = (segs: [[number, number], [number, number]][]) => segs.map((s) => JSON.stringify(s)).sort();
+  // 가로 2칸 직사각형: 변 4개로 합쳐진다.
+  assert.deepEqual(norm(cellOutline([{ cell_x: 0, cell_y: 0 }, { cell_x: 1, cell_y: 0 }])),
+    norm([[[0, 0], [2, 0]], [[0, 1], [2, 1]], [[0, 0], [0, 1]], [[2, 0], [2, 1]]]));
+  // 3x3에서 가운데가 빠지면 바깥 4변 + 구멍 4변.
+  const ring = [];
+  for (let x = 0; x < 3; x++) for (let y = 0; y < 3; y++) if (x !== 1 || y !== 1) ring.push({ cell_x: x, cell_y: y });
+  assert.equal(cellOutline(ring).length, 8);
+  // 모서리 좌표는 그 칸 안의 점을 다시 같은 칸으로 격자화한다.
+  const [lat, lon] = cornerLatLng(40.5, 44.5);
+  assert.deepEqual(q(lat, lon), { grid_version: 'pohang-v1', cell_x: 40, cell_y: 44 });
+});
