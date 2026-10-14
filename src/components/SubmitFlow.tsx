@@ -287,7 +287,6 @@ export default function SubmitFlow() {
               item={placeItem}
               pinned={place?.stage === 'pinned'}
               onPin={() => setPlace({ stage: 'pinned', item: placeItem })}
-              onRepin={() => setPlace({ stage: 'view', item: placeItem })}
               onBack={() => setPlace({ stage: 'list' })}
             />
           ) : null}

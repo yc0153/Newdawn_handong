@@ -6,7 +6,6 @@ import type { AddressItem } from '@/lib/map/kakaoPlaces';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Dir = { pan: number; tilt: number };
-const DRAG_PX = 6;
 
 const wait = () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
 
@@ -20,7 +19,6 @@ export default function RoadviewPane(props: {
   item: AddressItem;
   pinned: boolean;
   onPin: () => void;
-  onRepin: () => void;
   onBack: () => void;
 }) {
   const { t } = useI18n();
@@ -29,6 +27,9 @@ export default function RoadviewPane(props: {
   const pinOverlay = useRef<any>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'none'>('loading');
   const [hasPin, setHasPin] = useState(false);
+  // 카카오 로드뷰는 바닥을 누르면 다음 지점으로 이동하므로, 핀 꽂기 중에는 투명 막이 클릭을 대신 받는다.
+  const [picking, setPicking] = useState(false);
+  const [busy, setBusy] = useState(false);
   const { kakao, item } = props;
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export default function RoadviewPane(props: {
     let cancelled = false;
     setStatus('loading');
     setHasPin(false);
+    setPicking(false);
     const rv = new kakao.maps.Roadview(node);
     rvRef.current = rv;
     const client = new kakao.maps.RoadviewClient();
@@ -118,24 +120,13 @@ export default function RoadviewPane(props: {
     setHasPin(true);
   }, [kakao, placeAt]);
 
-  // 끌어서 돌리는 동작과 누르기를 구분한다.
-  useEffect(() => {
-    const node = el.current;
-    if (!node || status !== 'ready') return;
-    let down: { x: number; y: number } | null = null;
-    const onDown = (e: PointerEvent) => { down = { x: e.clientX, y: e.clientY }; };
-    const onUp = (e: PointerEvent) => {
-      if (!down) return;
-      const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
-      down = null;
-      if (moved > DRAG_PX || e.button !== 0) return;
-      const box = node.getBoundingClientRect();
-      void dropPin(e.clientX - box.left, e.clientY - box.top);
-    };
-    node.addEventListener('pointerdown', onDown, true);
-    node.addEventListener('pointerup', onUp, true);
-    return () => { node.removeEventListener('pointerdown', onDown, true); node.removeEventListener('pointerup', onUp, true); };
-  }, [status, dropPin]);
+  const onCatch = async (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || busy) return;
+    const box = el.current?.getBoundingClientRect();
+    if (!box) return;
+    setBusy(true);
+    try { await dropPin(e.clientX - box.left, e.clientY - box.top); } finally { setBusy(false); setPicking(false); }
+  };
 
   const place = item.name ?? item.road ?? item.jibun;
   return (
@@ -145,21 +136,31 @@ export default function RoadviewPane(props: {
         <button type="button" className="btn btn--small" onClick={props.onBack}>{t('rv.backToMap')}</button>
       </div>
       <div className="roadview__stage">
-        <div ref={el} className={`roadview__view${status === 'ready' ? ' roadview__view--pick' : ''}`} />
+        <div ref={el} className="roadview__view" />
+        {status === 'ready' && picking ? (
+          <div className="roadview__catch" onPointerUp={(e) => void onCatch(e)} role="button" aria-label={t('rv.pickHint')} tabIndex={-1} />
+        ) : null}
         {status === 'loading' ? <p className="roadview__msg" role="status">{t('rv.loading')}</p> : null}
         {status === 'none' ? <p className="roadview__msg" role="status">{t('rv.none')}</p> : null}
       </div>
       <div className="roadview__foot">
-        {status === 'ready' && !props.pinned ? (
+        {status === 'ready' ? (
           <>
-            <span className="muted small" role="status">{hasPin ? t('rv.moved') : t('rv.aim')}</span>
-            <button type="button" className="btn btn--primary" onClick={props.onPin} disabled={!hasPin}>{t('rv.pin')} <span aria-hidden="true">→</span></button>
-          </>
-        ) : null}
-        {status === 'ready' && props.pinned ? (
-          <>
-            <span className="roadview__ok" role="status">{t('rv.pinned')}</span>
-            <button type="button" className="btn btn--small" onClick={props.onRepin}>{t('rv.repin')}</button>
+            <span className={props.pinned && !picking ? 'roadview__ok' : 'muted small'} role="status">
+              {picking ? t('rv.pickHint') : props.pinned ? t('rv.pinned') : hasPin ? t('rv.moved') : t('rv.aim')}
+            </span>
+            <span className="roadview__actions">
+              {picking ? (
+                <button type="button" className="btn btn--small" onClick={() => setPicking(false)}>{t('rv.pickCancel')}</button>
+              ) : (
+                <button type="button" className={`btn${hasPin ? ' btn--small' : ' btn--primary'}`} onClick={() => setPicking(true)}>
+                  <span aria-hidden="true">📍</span> {hasPin ? t('rv.pickMove') : t('rv.pickStart')}
+                </button>
+              )}
+              {!props.pinned ? (
+                <button type="button" className="btn btn--primary" onClick={props.onPin} disabled={!hasPin || picking}>{t('rv.pin')} <span aria-hidden="true">→</span></button>
+              ) : null}
+            </span>
           </>
         ) : null}
         {status === 'none' && !props.pinned ? (
