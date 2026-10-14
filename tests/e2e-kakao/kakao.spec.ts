@@ -48,8 +48,29 @@ test('K01: map click lists nearby addresses; search, roadview pin and submit sen
   await expect(page.locator('.roadview')).toHaveCount(0);
   await expect(page.locator('.addr-list')).toBeVisible();
   await page.locator('.addr-item', { hasText: '검수빌딩' }).click();
-  await page.getByRole('button', { name: '이 장면에 핀 꽂기' }).click();
-  await expect(page.locator('.roadview__pin--set')).toBeVisible();
+  // 핀을 꽂기 전에는 다음 단계로 갈 수 없다.
+  await expect(page.getByRole('button', { name: /이 핀 위치로 의견 쓰기/ })).toBeDisabled();
+  // 로드뷰의 원하는 곳을 누르면 그 자리에 핀이 꽂힌다(가장자리 쪽도 원근 보정).
+  const view = (await page.locator('.roadview__view').boundingBox())!;
+  for (const [fx, fy] of [[0.25, 0.4], [0.82, 0.7]]) {
+    const cx = view.x + view.width * fx, cy = view.y + view.height * fy;
+    await page.mouse.click(cx, cy);
+    const pin = page.locator('.roadview__droppin');
+    await expect(pin).toHaveCount(1);
+    await expect.poll(async () => {
+      const b = (await pin.boundingBox())!;
+      return Math.round(Math.hypot(b.x + b.width / 2 - cx, b.y + b.height - cy));
+    }).toBeLessThanOrEqual(3);
+  }
+  // 끌기(화면 돌리기)는 핀을 옮기지 않는다.
+  const before = (await page.locator('.roadview__droppin').boundingBox())!;
+  await page.mouse.move(view.x + 100, view.y + 100);
+  await page.mouse.down();
+  await page.mouse.move(view.x + 160, view.y + 130, { steps: 5 });
+  await page.mouse.up();
+  const after = (await page.locator('.roadview__droppin').boundingBox())!;
+  expect(Math.abs(after.x - before.x) + Math.abs(after.y - before.y)).toBeLessThan(1);
+  await page.getByRole('button', { name: /이 핀 위치로 의견 쓰기/ }).click();
 
   // 의견 작성: 고른 장소 이름이 보이고, 저장은 약 200m 칸이라는 안내
   await expect(page.locator('#f-text')).toBeVisible();

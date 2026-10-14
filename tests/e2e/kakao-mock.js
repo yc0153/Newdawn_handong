@@ -92,6 +92,8 @@
       m.layer.appendChild(this.el);
       this.draw();
     };
+    C.prototype.setPosition = function (p) { this.opts.position = p; this.draw(); };
+    C.prototype.getMap = function () { return this.map; };
     C.prototype.draw = function () {
       const pos = this.opts.position ?? this.opts.center;
       if (!pos || !this.map) return;
@@ -129,11 +131,25 @@
     ], Status.OK), 5);
   };
 
-  function Roadview(node) { this.node = node; }
+  function Viewpoint(pan, tilt, zoom, panoId) { this.pan = pan; this.tilt = tilt; this.zoom = zoom; this.panoId = panoId; }
+  // 가짜 로드뷰: 가로 시야 90도의 원근 투영. 오버레이는 Viewpoint 방향에 그린다.
+  function Roadview(node) { this.node = node; this.vp = { pan: 30, tilt: 0, zoom: 0 }; this.items = []; this.panoId = null; }
   Roadview.prototype.setPanoId = function (id) {
+    this.panoId = id;
     this.node.innerHTML = `<div class="kmock-roadview" style="position:absolute;inset:0;display:grid;place-items:center;color:#fff;background:#355">ROADVIEW ${id}</div>`;
+    this.layer = document.createElement('div');
+    this.layer.style.cssText = 'position:absolute;inset:0;pointer-events:none';
+    this.node.appendChild(this.layer);
   };
+  Roadview.prototype.getPanoId = function () { return this.panoId; };
+  Roadview.prototype.getViewpoint = function () { return new Viewpoint(this.vp.pan, this.vp.tilt, this.vp.zoom, this.panoId); };
+  Roadview.prototype.setViewpoint = function (v) { this.vp = { pan: v.pan, tilt: v.tilt, zoom: v.zoom }; for (const it of this.items) it.draw(); };
   Roadview.prototype.relayout = function () {};
+  Roadview.prototype.project = function (pos) {
+    const w = this.node.clientWidth, h = this.node.clientHeight, f = (w / 2) / Math.tan(45 * RAD);
+    const dp = ((pos.pan - this.vp.pan + 540) % 360) - 180, dt = pos.tilt - this.vp.tilt;
+    return { x: w / 2 + f * Math.tan(dp * RAD), y: h / 2 + f * Math.tan(dt * RAD) / Math.cos(dp * RAD) };
+  };
   function RoadviewClient() {}
   // 검수 영역 북쪽(36.1 이상)은 로드뷰가 없다고 답한다.
   RoadviewClient.prototype.getNearestPanoId = function (pos, r, cb) { setTimeout(() => cb(pos.getLat() > 36.1 ? null : 4242), 5); };
@@ -143,7 +159,7 @@
       load(cb) { setTimeout(cb, 0); },
       LatLng, LatLngBounds, Map, CustomOverlay, Polygon, Circle, Polyline, event,
       ZoomControl: function () {}, ControlPosition: { RIGHT: 'RIGHT' },
-      Roadview, RoadviewClient,
+      Roadview, RoadviewClient, Viewpoint,
       services: { Geocoder, Places, Status },
     },
   };

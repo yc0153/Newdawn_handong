@@ -238,10 +238,11 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.65; }
 .eyebrow-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex: none; }
 .roadview__stage { position: relative; flex: 1; min-height: 0; background: #1b2a33; }
 .roadview__view { position: absolute; inset: 0; }
-.roadview__pin { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -100%); pointer-events: none; z-index: 2; filter: drop-shadow(0 2px 4px rgba(0,0,0,.35)); }
-.roadview__pin .pin { width: 38px; height: 38px; }
-.roadview__pin .pin__n { font-size: 20px; }
-.roadview__pin--set .pin { --c: var(--primary); box-shadow: 0 0 0 4px rgba(255,255,255,.85), 0 2px 6px rgba(0,0,0,.3); }
+.roadview__view--pick { cursor: crosshair; }
+.roadview__probe { display: block; width: 2px; height: 2px; visibility: hidden; }
+.roadview__droppin { display: block; padding-bottom: 8px; pointer-events: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,.35)); }
+.roadview__droppin .pin { width: 38px; height: 38px; margin: 0; --c: var(--primary); box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 2px 6px rgba(0,0,0,.3); }
+.roadview__droppin .pin__n { font-size: 20px; }
 .roadview__msg { position: absolute; inset: 0; margin: 0; display: grid; place-items: center; color: #fff; font-weight: 600; padding: 16px; text-align: center; }
 .roadview__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; padding: 10px 12px; border-top: 1px solid var(--line); }
 .roadview__ok { color: var(--ok-ink, #24693F); font-weight: 600; }
