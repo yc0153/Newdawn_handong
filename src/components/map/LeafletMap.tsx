@@ -33,6 +33,8 @@ export default function LeafletMap(props: LeafletMapProps) {
   const area = useRef<L.LayerGroup | null>(null);
   const tag = useRef<L.LayerGroup | null>(null);
   const fitted = useRef(false);
+  // 지도 크기가 0일 때(숨은 탭·접힌 화면) 맞추면 최대로 확대되므로 크기가 생길 때까지 미룬다.
+  const pendingFit = useRef<{ bounds: L.LatLngBounds; padding: [number, number]; maxZoom?: number } | null>(null);
   const cb = useRef(props);
   useEffect(() => { cb.current = props; });
 
@@ -67,7 +69,15 @@ export default function LeafletMap(props: LeafletMapProps) {
       cb.current.onPick(c.lat, c.lng);
     };
     container.addEventListener('keydown', onKey);
-    const ro = new ResizeObserver(() => m.invalidateSize());
+    const ro = new ResizeObserver(() => {
+      m.invalidateSize();
+      const p = pendingFit.current;
+      const size = m.getSize();
+      if (p && size.x > 0 && size.y > 0) {
+        pendingFit.current = null;
+        m.fitBounds(p.bounds, { padding: p.padding, maxZoom: p.maxZoom, animate: false });
+      }
+    });
     ro.observe(el.current);
     return () => {
       ro.disconnect();
@@ -130,8 +140,7 @@ export default function LeafletMap(props: LeafletMapProps) {
     const bounds: L.LatLngBounds | null = L.latLngBounds(cornerLatLng(minX, minY), cornerLatLng(maxX + 1, maxY + 1));
     if (bounds && props.fit === 'allowed' && !fitted.current) {
       fitted.current = true;
-      m.invalidateSize({ pan: false });
-      m.fitBounds(bounds, { padding: [16, 16], animate: false });
+      fitWhenSized(m, bounds, [16, 16]);
     }
   }, [props.allowedCells, props.fit]);
 
@@ -165,8 +174,7 @@ export default function LeafletMap(props: LeafletMapProps) {
       fitted.current = true;
       m.invalidateSize({ pan: false });
       const b = L.latLngBounds(groups.map((p) => [p.lat, p.lon] as [number, number]));
-      if (groups.length === 1) m.setView(b.getCenter(), 15, { animate: false });
-      else m.fitBounds(b, { padding: [40, 40], maxZoom: 15, animate: false });
+      fitWhenSized(m, b, [40, 40], 15);
     }
   }, [props.groups, props.fit]);
 
@@ -191,6 +199,14 @@ export default function LeafletMap(props: LeafletMapProps) {
     if (props.reducedMotion) m.setView([props.focus.lat, props.focus.lon], zoom, { animate: false });
     else m.flyTo([props.focus.lat, props.focus.lon], zoom, { duration: 0.6 });
   }, [props.focus, props.reducedMotion]);
+
+  function fitWhenSized(m: L.Map, bounds: L.LatLngBounds, padding: [number, number], maxZoom?: number) {
+    m.invalidateSize({ pan: false });
+    const size = m.getSize();
+    if (size.x === 0 || size.y === 0) { pendingFit.current = { bounds, padding, maxZoom }; return; }
+    pendingFit.current = null;
+    m.fitBounds(bounds, { padding, maxZoom, animate: false });
+  }
 
   return <div ref={el} className={props.compact ? 'leaflet-host leaflet-host--compact' : 'leaflet-host'} />;
 }

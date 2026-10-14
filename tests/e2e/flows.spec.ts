@@ -540,3 +540,18 @@ test('X22: with no allowed area or submissions disabled the page explains it and
   await expect(page.locator('#f-text')).toHaveCount(0);
   expect(posted).toBe(false);
 });
+
+test('X23: a map that loads while hidden fits the allowed area once it becomes visible', async ({ page }) => {
+  await page.route('**/submit', async (route) => {
+    const r = await route.fetch();
+    const html = (await r.text()).replace('</body>', '<style id="hide-map">.leaflet-host{display:none!important}</style></body>');
+    await route.fulfill({ response: r, body: html });
+  });
+  await page.goto('/submit');
+  await expect(page.locator('.leaflet-overlay-pane path').first()).toBeAttached();
+  await page.evaluate(() => document.getElementById('hide-map')?.remove());
+  await expect.poll(async () => {
+    const src = await page.locator('.leaflet-tile').first().getAttribute('src');
+    return Number(src?.match(/\/(\d+)\/\d+\/\d+\.svg$/)?.[1] ?? 99);
+  }).toBeLessThan(16);
+});
