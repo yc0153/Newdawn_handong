@@ -99,8 +99,10 @@
       if (!pos || !this.map) return;
       const p = this.map.project(pos);
       const w = this.el.offsetWidth, h = this.el.offsetHeight;
-      this.el.style.left = `${p.x - (this.opts.xAnchor ?? 0.5) * w}px`;
-      this.el.style.top = `${p.y - (this.opts.yAnchor ?? 0.5) * h}px`;
+      // 실제 카카오 로드뷰처럼 큰 오버레이는 기준점이 조금 어긋난다(앱이 핀 위치를 다시 재서 보정해야 함).
+      const skew = this.map instanceof Roadview && w > 20 ? { x: 12, y: -8 } : { x: 0, y: 0 };
+      this.el.style.left = `${p.x - (this.opts.xAnchor ?? 0.5) * w + skew.x}px`;
+      this.el.style.top = `${p.y - (this.opts.yAnchor ?? 0.5) * h + skew.y}px`;
       this.el.style.zIndex = String(this.opts.zIndex ?? 1);
     };
   }

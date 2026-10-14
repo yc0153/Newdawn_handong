@@ -85,6 +85,7 @@ export default function RoadviewPane(props: {
     const vp = rv.getViewpoint();
     let dir: Dir = { pan: vp.pan, tilt: vp.tilt };
     const STEP = 1.5;
+    let J: { a: number; b: number; c: number; d: number; det: number } | null = null;
     try {
       for (let i = 0; i < 5; i++) {
         const p0 = await placeAt(probe, probeEl, dir);
@@ -97,6 +98,7 @@ export default function RoadviewPane(props: {
         const b = (pt.x - p0.x) / STEP, d = (pt.y - p0.y) / STEP;
         const det = a * d - b * c;
         if (!Number.isFinite(det) || Math.abs(det) < 1e-6) return;
+        J = { a, b, c, d, det };
         const dx = x - p0.x, dy = y - p0.y;
         dir = { pan: dir.pan + (d * dx - b * dy) / det, tilt: dir.tilt + (-c * dx + a * dy) / det };
       }
@@ -116,7 +118,13 @@ export default function RoadviewPane(props: {
     pinOverlay.current?.setMap(null);
     const overlay = new kakao.maps.CustomOverlay({ content, xAnchor: 0.5, yAnchor: 1, zIndex: 5 });
     pinOverlay.current = overlay;
-    await placeAt(overlay, content, dir);
+    // 큰 핀은 카카오가 기준점을 시험 오버레이와 조금 다르게 잡으므로, 핀 자체 위치를 재서 맞춘다.
+    for (let i = 0; i < 3; i++) {
+      const at = await placeAt(overlay, content, dir);
+      if (!at || !J || Math.hypot(at.x - x, at.y - y) < 1.5) break;
+      const dx = x - at.x, dy = y - at.y;
+      dir = { pan: dir.pan + (J.d * dx - J.b * dy) / J.det, tilt: dir.tilt + (-J.c * dx + J.a * dy) / J.det };
+    }
     setHasPin(true);
   }, [kakao, placeAt]);
 
