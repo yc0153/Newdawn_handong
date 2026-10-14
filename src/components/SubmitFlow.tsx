@@ -62,13 +62,18 @@ export default function SubmitFlow() {
 
   const loadConfig = useCallback(async () => {
     setConfig((c) => ({ status: 'loading', data: c.data }));
-    try {
-      const res = await fetch('/api/public/config', { cache: 'no-store' });
-      if (!res.ok) throw new Error(String(res.status));
-      setConfig({ status: 'ready', data: (await res.json()) as PublicConfig });
-    } catch {
-      setConfig({ status: 'error' });
+    // 허용 영역이 넓으면 응답이 커서 첫 요청이 실패할 수 있다. 두 번까지 조용히 다시 시도한다.
+    for (let attemptNo = 0; attemptNo < 3; attemptNo++) {
+      try {
+        const res = await fetch('/api/public/config', { cache: 'no-store' });
+        if (!res.ok) throw new Error(String(res.status));
+        setConfig({ status: 'ready', data: (await res.json()) as PublicConfig });
+        return;
+      } catch {
+        if (attemptNo < 2) await new Promise((r) => setTimeout(r, 800 * (attemptNo + 1)));
+      }
     }
+    setConfig({ status: 'error' });
   }, []);
   useEffect(() => {
     clearReceipt();

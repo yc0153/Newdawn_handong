@@ -555,3 +555,16 @@ test('X23: a map that loads while hidden fits the allowed area once it becomes v
     return Number(src?.match(/\/(\d+)\/\d+\/\d+\.svg$/)?.[1] ?? 99);
   }).toBeLessThan(16);
 });
+
+test('X24: a failing first config request is retried quietly before showing an error', async ({ page }) => {
+  let calls = 0;
+  await page.route('**/api/public/config', async (route) => {
+    calls += 1;
+    if (calls <= 2) return route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":{"code":"SERVICE_UNAVAILABLE"}}' });
+    return route.continue();
+  });
+  await page.goto('/submit');
+  await expect(page.locator('.leaflet-overlay-pane path').first()).toBeAttached();
+  await expect(page.getByText('등록 설정을 불러오지 못했습니다.')).toHaveCount(0);
+  expect(calls).toBe(3);
+});
