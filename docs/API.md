@@ -55,7 +55,7 @@ header `Idempotency-Key: UUID`. 서버는 JSON 최대 8KB를 검사한다. 원�
 {"reference":"OP-독립된참고번호","message":"의견이 등록되었습니다. 담당자가 확인하기 전에는 공개되지 않습니다.","published":false}
 ```
 
-`published`는 테스트 모드(`service_settings.test_auto_publish`)가 켜져 있고 작성자가 지도 공개를 고른 새 의견일 때만 true다. 이때 원문 앞 250자(넘치면 249자+…)를 요약으로 바로 공개하고, 플레이어 공개도 골랐으면 상영에도 포함한다. 같은 키 재시도(200)는 `published:false`로 돌려준다.
+`published`는 테스트 모드(`service_settings.test_auto_publish_until`이 지금보다 뒤)가 켜져 있고 작성자가 지도 공개를 고른 새 의견일 때 true다. 이때 원문 앞 250자(넘치면 249자+…)를 요약으로 바로 공개하고, 플레이어 공개도 골랐으면 상영에도 포함하며, 켠 담당자 이름으로 `auto_publish` 이력을 남긴다. 같은 키 재시도(200)는 그 의견이 지금 공개 상태인지를 돌려준다.
 
 `reference`만으로 원문·상태를 조회할 endpoint는 없다. 같은 키의 다른 payload는 `IDEMPOTENCY_CONFLICT` 409. 정상 저장 후 삭제된 의견을 같은 키로 재시도해도 다시 만들지 않고 영수증만 반환한다. 키는 임의 UUID일 뿐 데이터 복구·조회권한이 아니다. `SUBMISSIONS_DISABLED` 503, `OUTSIDE_AREA` 422, `INVALID_CONSENT` 422, `TEXT_TOO_SHORT`/`TEXT_TOO_LONG` 422, `RATE_LIMITED` 429를 구분한다. 실패 시 같은 화면에서 입력을 보존한다.
 
@@ -89,16 +89,16 @@ DB에서 행을 잠그고 expected_version을 확인한다. 실제 변경 시 ve
 
 ## 테스트 모드 설정 (2026-10-19)
 
-`GET /api/admin/settings` → `{test_auto_publish, test_auto_publish_supported}` (활성 담당자만). `supported=false`는 DB에 2026-10-19 SQL이 아직 없다는 뜻이다.
+`GET /api/admin/settings` → `{test_auto_publish, test_auto_publish_until, test_auto_publish_supported}` (활성 담당자만). `supported=false`는 DB에 2026-10-19 SQL이 아직 없다는 뜻이다.
 
-`POST /api/admin/settings` body `{test_auto_publish: boolean}` → `{test_auto_publish}`. Same Origin·활성 담당자만. DB RPC `admin_set_test_auto_publish`가 함수 안에서 담당자 명단을 다시 확인한다. SQL 미적용이면 `MIGRATION_REQUIRED` 503.
+`POST /api/admin/settings` body `{test_auto_publish: boolean, hours?: 1..72}`(기본 12) → `{test_auto_publish, test_auto_publish_until}`. 켜면 `hours`시간 뒤 저절로 꺼진다. Same Origin·활성 담당자만. DB RPC `admin_set_test_auto_publish`가 함수 안에서 담당자 명단을 다시 확인하고 `settings_audit_logs`에 켠·끈 기록을 남긴다. SQL 미적용이면 `MIGRATION_REQUIRED` 503.
 
 ## 로컬 DB 모드 (2026-10-19)
 
-`DATA_BACKEND=local`(또는 Supabase 주소가 없고 Vercel이 아닐 때)이면 위 모든 경로가 같은 계약으로 내장 PGlite DB를 쓴다. `supabase/migrations`를 그대로 적용하므로 RPC·RLS·트리거·오류 코드가 같다. 다른 점은 담당자 로그인뿐이다.
+`DATA_BACKEND=local`(또는 개발 서버이고 Supabase 주소가 없고 Vercel이 아닐 때)이면 위 모든 경로가 같은 계약으로 내장 PGlite DB를 쓴다. `supabase/migrations`를 그대로 적용하므로 RPC·RLS·트리거·오류 코드가 같다. 다른 점은 담당자 로그인뿐이다.
 
-- `POST /api/admin/session` body `{email,password}` → 200 `{ok:true}` + HttpOnly 서명 쿠키(8시간). 실패 401 `INVALID_CREDENTIALS`, 담당자 아님 403. Same Origin만.
+- `POST /api/admin/session` body `{email,password}` → 200 `{ok:true}` + HttpOnly 서명 쿠키(8시간). 틀린 비밀번호·없는 계정·비활성 담당자는 모두 401 `INVALID_CREDENTIALS`(0.4초 지연). 5분에 10번 넘게 실패하면 429. Same Origin만.
 - `DELETE /api/admin/session` → 쿠키 삭제.
 - Supabase 모드에서는 두 경로 모두 404다(로그인은 브라우저의 Supabase Auth).
-- 로컬 모드에서 `APP_ORIGIN`을 비우면 요청을 받은 주소를 Same Origin 기준으로 쓴다.
+- `npm run dev:local`은 `APP_ORIGIN`이 없으면 `http://localhost:<포트>`로 정한다. 다른 PC에서 접속하려면 `.env.local`에 그 주소를 `APP_ORIGIN`으로 적는다.
 

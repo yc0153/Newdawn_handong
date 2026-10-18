@@ -96,10 +96,11 @@ export function localOperatorStore(userId: string): OperatorStore {
       if (!r.rows[0]?.result) throw new HttpError(503, 'SERVICE_UNAVAILABLE');
       return r.rows[0].result;
     }),
-    setTestAutoPublish: (enabled) => guard(async () => {
-      const r = await as((tx) => tx.query<{ result: { test_auto_publish: boolean } }>(
-        'select public.admin_set_test_auto_publish($1) as result', [enabled]));
-      return Boolean(r.rows[0]?.result?.test_auto_publish);
+    setTestAutoPublish: (enabled, hours) => guard(async () => {
+      const r = await as((tx) => tx.query<{ result: { test_auto_publish: boolean; test_auto_publish_until: string | null } }>(
+        'select public.admin_set_test_auto_publish($1, $2) as result', [enabled, hours]));
+      const result = r.rows[0]?.result;
+      return { enabled: Boolean(result?.test_auto_publish), until: result?.test_auto_publish_until ?? null };
     }),
   };
 }

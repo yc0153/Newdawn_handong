@@ -14,6 +14,7 @@ export const ACTION_LABEL: Record<AdminAudit['action'], string> = {
   hide: '숨김',
   set_player: '상영 포함 변경',
   delete: '삭제',
+  auto_publish: '테스트 모드 자동 공개',
 };
 
 export function formatDate(iso: string) {

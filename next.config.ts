@@ -18,6 +18,8 @@ const config: NextConfig = {
   poweredByHeader: false,
   // 로컬 DB 모드의 내장 Postgres(WASM)는 번들하지 않고 node_modules에서 그대로 불러온다.
   serverExternalPackages: ['@electric-sql/pglite'],
+  // 배포 함수 묶음에는 로컬 DB용 파일을 넣지 않는다(Vercel에서는 로컬 DB를 쓰지 않음). PC에서 next dev/start는 영향 없음.
+  outputFileTracingExcludes: { '*': ['node_modules/@electric-sql/pglite/**', '.local-db/**'] },
   async headers() {
     return [
       { source: '/:path*', headers: [...common, { key: 'Content-Security-Policy', value: `frame-ancestors ${frameAncestors}` }] },

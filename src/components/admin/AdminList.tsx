@@ -93,11 +93,13 @@ export default function AdminList() {
   );
 }
 
-type Settings = { test_auto_publish: boolean; test_auto_publish_supported: boolean };
+type Settings = { test_auto_publish: boolean; test_auto_publish_until: string | null; test_auto_publish_supported: boolean };
+const HOURS = [3, 12, 24, 72];
 
-/** 테스트 모드(검토 없이 바로 공개) 켜기·끄기. 팀 테스트에서만 쓰고 정식 운영 전에는 끈다. */
+/** 테스트 모드(검토 없이 바로 공개) 켜기·끄기. 켜면 정한 시간 뒤 저절로 꺼진다. 팀 테스트에서만 쓴다. */
 function TestModeSwitch({ onChanged }: { onChanged: () => void }) {
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [hours, setHours] = useState(12);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -117,12 +119,12 @@ function TestModeSwitch({ onChanged }: { onChanged: () => void }) {
       const res = await fetch('/api/admin/settings', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ test_auto_publish: !settings.test_auto_publish }),
+        body: JSON.stringify(settings.test_auto_publish ? { test_auto_publish: false } : { test_auto_publish: true, hours }),
         cache: 'no-store',
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) { setError(json?.error?.message ?? '바꾸지 못했습니다.'); return; }
-      setSettings({ ...settings, test_auto_publish: Boolean(json?.test_auto_publish) });
+      setSettings({ ...settings, test_auto_publish: Boolean(json?.test_auto_publish), test_auto_publish_until: json?.test_auto_publish_until ?? null });
       onChanged();
     } catch {
       setError('연결 문제로 바꾸지 못했습니다.');
@@ -134,17 +136,30 @@ function TestModeSwitch({ onChanged }: { onChanged: () => void }) {
   return (
     <section className={`card test-mode${on ? ' test-mode--on' : ''}`} aria-labelledby="test-mode-title">
       <div className="test-mode__text">
-        <h2 id="test-mode-title" className="small-heading">테스트 모드 · 검토 없이 바로 공개 <span className={`status ${on ? 'status--published' : 'status--hidden'}`}>{on ? '켜짐' : '꺼짐'}</span></h2>
+        <h2 id="test-mode-title" className="small-heading">
+          테스트 모드 · 검토 없이 바로 공개 <span className={`status ${on ? 'status--published' : 'status--hidden'}`}>{on ? '켜짐' : '꺼짐'}</span>
+          {on && settings.test_auto_publish_until ? <span className="muted small">{formatDate(settings.test_auto_publish_until)}에 저절로 꺼짐</span> : null}
+        </h2>
         <p className="muted small">
-          켜면 새로 들어오는 의견 중 작성자가 지도 공개를 고른 것은 원문 앞 250자를 요약으로 바로 공개하고, 플레이어 공개도 고른 것은 바로 상영합니다.
-          이미 들어온 의견은 바뀌지 않습니다. 링크를 아는 누구나 쓸 수 있으므로 팀 테스트 중에만 켜고, 정식 운영 전에는 꼭 끄세요.
+          켜 두는 동안 새로 들어오는 의견 중 작성자가 지도 공개를 고른 것은 원문 앞 250자를 요약으로 바로 공개하고, 플레이어 공개도 고른 것은 바로 상영합니다.
+          이미 들어온 의견은 바뀌지 않으며, 자동 공개된 의견에는 켠 담당자 이름으로 이력이 남습니다. 링크를 아는 누구나 쓸 수 있으므로 팀 테스트 중에만 켜고, 정식 운영 전에는 꼭 끄세요.
         </p>
-        {!settings.test_auto_publish_supported ? <p className="state state--warn small">DB에 테스트 모드 SQL이 아직 적용되지 않았습니다. supabase/manual/2026-10-19_test_auto_publish.sql을 SQL Editor에서 실행하면 켤 수 있습니다.</p> : null}
+        {!settings.test_auto_publish_supported ? <p className="state state--warn small">DB에 테스트 모드 SQL이 아직 적용되지 않았습니다. supabase/manual/2026-10-19_test_auto_publish.sql을 Supabase SQL Editor에서 실행하면 켤 수 있습니다.</p> : null}
         {error ? <p className="state state--error small" role="alert">{error}</p> : null}
       </div>
-      <button type="button" className={on ? 'btn' : 'btn btn--primary'} onClick={() => void toggle()} disabled={busy || !settings.test_auto_publish_supported} aria-pressed={on}>
-        {on ? '테스트 모드 끄기' : '테스트 모드 켜기'}
-      </button>
+      <div className="action-row">
+        {!on ? (
+          <label className="test-mode__hours">
+            <span className="visually-hidden">켜 둘 시간</span>
+            <select value={hours} onChange={(e) => setHours(Number(e.target.value))} disabled={busy || !settings.test_auto_publish_supported}>
+              {HOURS.map((h) => <option key={h} value={h}>{h}시간 동안</option>)}
+            </select>
+          </label>
+        ) : null}
+        <button type="button" className={on ? 'btn' : 'btn btn--primary'} onClick={() => void toggle()} disabled={busy || !settings.test_auto_publish_supported} aria-pressed={on}>
+          {on ? '테스트 모드 끄기' : '테스트 모드 켜기'}
+        </button>
+      </div>
     </section>
   );
 }

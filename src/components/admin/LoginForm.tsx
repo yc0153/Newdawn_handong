@@ -23,7 +23,7 @@ export default function LoginForm({ localAuth = false }: { localAuth?: boolean }
           cache: 'no-store',
         });
         if (res.status === 401 || res.status === 400) { setError('이메일 또는 비밀번호를 확인해 주세요.'); return; }
-        if (res.status === 403) { setError('담당자 권한이 없는 계정입니다.'); return; }
+        if (res.status === 429) { setError('로그인 시도가 많습니다. 몇 분 뒤 다시 시도해 주세요.'); return; }
         if (!res.ok) throw new Error(String(res.status));
       } else {
         const { error: err } = await createClient().auth.signInWithPassword({ email: email.trim(), password });

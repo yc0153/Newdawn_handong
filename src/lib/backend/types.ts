@@ -21,7 +21,7 @@ export type SubmitParams = {
 /** published는 테스트 모드 자동 공개가 켜진 DB에서만 true가 될 수 있다. */
 export type SubmitReceipt = { reference: string; created: boolean; published?: boolean };
 
-export type RawConfig = Partial<PublicConfig> & { test_auto_publish?: boolean };
+export type RawConfig = Partial<PublicConfig> & { test_auto_publish?: boolean; test_auto_publish_until?: string | null };
 
 export interface PublicStore {
   readPublicOpinions(mode: 'browse' | 'player'): Promise<PublicOpinion[]>;
@@ -63,5 +63,6 @@ export interface OperatorStore {
   listOpinions(q: { status: string; page: number; pageSize: number }): Promise<{ rows: AdminRow[]; total: number }>;
   getOpinion(id: string): Promise<{ row: AdminRow; audit: AdminAudit[] } | null>;
   action(p: AdminActionParams): Promise<AdminActionResult>;
-  setTestAutoPublish(enabled: boolean): Promise<boolean>;
+  /** 켜면 hours시간 뒤 저절로 꺼진다. */
+  setTestAutoPublish(enabled: boolean, hours: number): Promise<{ enabled: boolean; until: string | null }>;
 }

@@ -2,7 +2,7 @@
 // 실행: npm run test:local  (react-server 조건으로 server-only 모듈을 불러온다)
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -53,9 +53,12 @@ async function publicList(mode: 'browse' | 'player') {
   return ((await res.json()) as { data: Record<string, unknown>[] }).data;
 }
 
-test('mode: explicit local, auto local without Supabase URL, never auto on Vercel', () => {
+test('mode: explicit local, auto local only in dev without Supabase URL, never auto on Vercel or in production', () => {
   assert.equal(backendMode({ DATA_BACKEND: 'local' }), 'local');
+  assert.equal(backendMode({ DATA_BACKEND: 'local', NODE_ENV: 'production' }), 'local');
   assert.equal(backendMode({}), 'local');
+  assert.equal(backendMode({ NODE_ENV: 'development' }), 'local');
+  assert.equal(backendMode({ NODE_ENV: 'production' }), 'supabase', '운영 빌드는 설정 누락을 로컬 DB로 덮지 않는다');
   assert.equal(backendMode({ NEXT_PUBLIC_SUPABASE_URL: 'https://x.supabase.co' }), 'supabase');
   assert.equal(backendMode({ VERCEL: '1' }), 'supabase');
   assert.equal(backendMode({ DATA_BACKEND: 'supabase' }), 'supabase');
@@ -139,12 +142,23 @@ test('local DB: same API flow as Supabase without any external service', async (
     assert.equal(await op.getOpinion(randomUUID()), null);
 
     // 테스트 모드: 켜면 새 의견이 바로 지도·플레이어에 나온다
-    assert.equal(await op.setTestAutoPublish(true), true);
+    await assert.rejects(() => outsider.setTestAutoPublish(true, 12), /FORBIDDEN/);
+    const on = await op.setTestAutoPublish(true, 12);
+    assert.equal(on.enabled, true);
+    const hoursLeft = (new Date(on.until!).getTime() - Date.now()) / 3_600_000;
+    assert.ok(hoursLeft > 11.9 && hoursLeft <= 12, '12시간 뒤 저절로 꺼진다');
     assert.equal((await config()).test_auto_publish, true);
-    const auto = await submit(cfg, { text: '테스트 모드에서는 바로 상영됩니다 확인' });
+    const autoKey = randomUUID();
+    const auto = await submit(cfg, { key: autoKey, text: '테스트 모드에서는 바로 상영됩니다 확인' });
     assert.equal(((await auto.json()) as { published: boolean }).published, true);
+    const autoRetry = await submit(cfg, { key: autoKey, text: '테스트 모드에서는 바로 상영됩니다 확인' });
+    assert.equal(((await autoRetry.json()) as { published: boolean }).published, true, '재시도해도 공개된 사실을 알려 준다');
     assert.equal((await publicList('player')).length, 2);
-    await op.setTestAutoPublish(false);
+    const autoRow = (await op.listOpinions({ status: 'published', page: 1, pageSize: 10 })).rows.find((r) => r.summary === '테스트 모드에서는 바로 상영됩니다 확인');
+    const autoDetail = await op.getOpinion(autoRow!.id);
+    assert.deepEqual(autoDetail?.audit.map((a) => [a.action, a.actor_id]), [['auto_publish', userId]], '켠 담당자 이름으로 자동 공개 이력이 남는다');
+    const off = await op.setTestAutoPublish(false, 12);
+    assert.deepEqual(off, { enabled: false, until: null });
     const reviewed = await submit(cfg, { text: '끄면 다시 검토를 거쳐야 공개됩니다' });
     assert.equal(((await reviewed.json()) as { published: boolean }).published, false);
     assert.equal((await publicList('browse')).length, 2);
@@ -180,10 +194,16 @@ test('local DB folder: data survives restart, account file is written, second se
     assert.equal((await local.localOperatorStore(userId!).listOpinions({ status: 'all', page: 1, pageSize: 10 })).total, 1);
     await closeLocalDb();
 
-    // 살아 있는 다른 프로세스가 폴더를 잡고 있으면 열지 않는다
-    writeFileSync(path.join(dir, 'server.pid'), String(process.ppid));
+    assert.ok(!existsSync(path.join(dir, 'server.lock')), '닫으면 잠금을 푼다');
+    // 다른 서버가 최근에 잠금을 갱신했으면 열지 않는다
+    writeFileSync(path.join(dir, 'server.lock'), JSON.stringify({ pid: process.ppid }));
     const busy = await getConfig();
     assert.equal(busy.status, 503);
+    await closeLocalDb();
+    // 오래된 잠금(창을 닫아 남은 것)은 무시하고 연다
+    const old = new Date(Date.now() - 60_000);
+    utimesSync(path.join(dir, 'server.lock'), old, old);
+    assert.equal((await getConfig()).status, 200);
     await closeLocalDb();
   } finally {
     await closeLocalDb();
@@ -192,4 +212,29 @@ test('local DB folder: data survives restart, account file is written, second se
     process.env.LOCAL_ADMIN_PASSWORD = saved.pw;
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('local DB: a bad setting fails before the DB is created and is not retried on every request', async () => {
+  const saved = process.env.LOCAL_ADMIN_PASSWORD;
+  process.env.LOCAL_ADMIN_PASSWORD = 'short';
+  try {
+    const started = performance.now();
+    for (let i = 0; i < 20; i++) assert.equal((await getConfig()).status, 503);
+    assert.ok(performance.now() - started < 2000, '실패를 잠깐 기억해 요청마다 DB를 다시 만들지 않는다');
+  } finally {
+    process.env.LOCAL_ADMIN_PASSWORD = saved;
+    await closeLocalDb();
+  }
+  assert.equal((await getConfig()).status, 200, '설정을 고치면 다시 열린다');
+  await closeLocalDb();
+});
+
+test('migration wrapper keeps the file and its record in one transaction', async () => {
+  const { wrapMigration } = await import('../src/lib/backend/local-db');
+  const sql = 'begin;\ncreate function f() returns int language plpgsql as $$ begin return 1; end; $$;\ncommit;\n';
+  const wrapped = wrapMigration(sql, "x'y.sql");
+  assert.equal((wrapped.match(/^begin;$/gm) ?? []).length, 1);
+  assert.equal((wrapped.match(/^commit;$/gm) ?? []).length, 1);
+  assert.ok(wrapped.includes("values ('x''y.sql')"));
+  assert.ok(wrapped.indexOf('insert into local_app.migrations') < wrapped.lastIndexOf('commit;'));
 });

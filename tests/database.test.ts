@@ -213,7 +213,13 @@ test('test mode auto-publish: off by default, respects consent, truncates, opera
     await role(db,'authenticated',outsider);
     await assert.rejects(()=>db.query('select public.admin_set_test_auto_publish(true)'),/FORBIDDEN/);
     await role(db,'authenticated',operator);
+    await assert.rejects(()=>db.query('select public.admin_set_test_auto_publish(true,0)'),/INVALID_REQUEST/);
+    await assert.rejects(()=>db.query('select public.admin_set_test_auto_publish(true,73)'),/INVALID_REQUEST/);
     await db.query('select public.admin_set_test_auto_publish(true)');
+    await role(db,'postgres');
+    const hours=(await db.query<{h:number}>("select extract(epoch from (test_auto_publish_until-now()))/3600 as h from public.service_settings")).rows[0].h;
+    assert.ok(hours>11.9&&hours<=12);
+    await role(db,'authenticated',operator);
     // map+player consent → published and in the player; map only → map; none → stays pending
     const both=await submit(db,randomUUID(),'  플레이어까지 공개하는 의견입니다  ',[true,true]);
     const mapOnly=await submit(db,randomUUID(),'지도에만 공개하는 의견입니다',[true,false]);
@@ -230,8 +236,25 @@ test('test mode auto-publish: off by default, respects consent, truncates, opera
     const rows=await raw(db);const auto=rows.find(r=>r.summary==='지도에만 공개하는 의견입니다')!;
     const hidden=await action(db,auto.id,auto.version,'hide');assert.equal(hidden.status,'hidden');
     assert.equal((await publicData(db)).length,2);
-    await role(db,'authenticated',operator);await db.query('select public.admin_set_test_auto_publish(false)');
+    // 자동 공개 이력은 켠 담당자 이름으로 남고, 켜고 끈 기록도 남는다
+    await role(db,'authenticated',operator);
+    const autoAudit=await db.query<{action:string;actor_id:string}>("select action,actor_id from public.admin_audit_logs where action='auto_publish'");
+    assert.equal(autoAudit.rows.length,3);assert.ok(autoAudit.rows.every(r=>r.actor_id===operator));
+    // 같은 키 재시도는 이미 공개되었다는 사실을 돌려준다
+    const replayKey=randomUUID();await submit(db,replayKey,'재시도 확인용 의견입니다 공개',[true,true]);
+    assert.equal((await submit(db,replayKey,'재시도 확인용 의견입니다 공개',[true,true])).published,true);
+    // 정한 시간이 지나면 저절로 꺼진다
+    await role(db,'postgres');await db.exec("update public.service_settings set test_auto_publish_until=now()-interval '1 second'");
+    await role(db,'service_role');
+    assert.equal((await db.query<{c:{test_auto_publish:boolean}}>('select public.read_public_config() as c')).rows[0].c.test_auto_publish,false);
+    assert.equal((await submit(db,randomUUID(),'시간이 지나면 검토를 거칩니다',[true,true])).published,false);
+    await role(db,'authenticated',operator);await db.query('select public.admin_set_test_auto_publish(true,1)');
+    await db.query('select public.admin_set_test_auto_publish(false)');
     const after=await submit(db,randomUUID(),'다시 검토를 거치는 의견입니다',[true,true]);
     assert.equal(after.published,false);
+    await role(db,'authenticated',operator);
+    const settingsAudit=await db.query<{value:string}>('select value from public.settings_audit_logs order by created_at,id');
+    assert.equal(settingsAudit.rows.length,3);assert.equal(settingsAudit.rows.at(-1)!.value,'off');
+    await role(db,'anon');await assert.rejects(()=>db.query('select * from public.settings_audit_logs'),/permission denied/);
   }finally{await db.close();}
 });

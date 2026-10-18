@@ -24,8 +24,9 @@ npm run dev:local        # http://localhost:3000  (Windows는 '로컬DB로실행
 - 데이터는 프로젝트 폴더의 `.local-db/`에 저장된다(Git 제외). 처음 상태로 되돌리려면 서버를 끄고 이 폴더를 지운다.
 - 처음 실행할 때 포항시 전체 등록 영역을 열고, 담당자 계정을 만들어 `.local-db/admin-account.txt`에 적는다. 정해 두려면 `.env.local`에 `LOCAL_ADMIN_EMAIL`·`LOCAL_ADMIN_PASSWORD`(8자 이상).
 - `supabase/migrations`의 SQL을 그대로 적용하므로 공개 조건·권한·멱등·버전 충돌이 Supabase와 같다. 새 마이그레이션은 다음 실행 때 자동으로 적용된다.
-- `.env.local`에 Supabase 값이 있어도 `dev:local`은 로컬 DB를 쓴다. `DATA_BACKEND`를 비워 두면 Supabase 주소가 없을 때만 로컬 DB로 동작한다.
-- 한 번에 서버 하나만 같은 폴더를 열 수 있다(두 번째 서버는 `[로컬 DB] … 쓰고 있습니다` 안내 후 503).
+- `.env.local`에 Supabase 값이 있어도 `dev:local`은 로컬 DB를 쓴다. `DATA_BACKEND`를 비워 두면 개발 서버(`npm run dev`)에서 Supabase 주소가 없을 때만 로컬 DB로 동작한다. 운영 빌드(`npm start`)는 직접 `DATA_BACKEND=local`을 적어야 한다.
+- 주소는 `http://localhost:3000`으로 연다(같은 출처 검사 기준). 같은 와이파이의 다른 기기에서 열려면 `.env.local`에 `APP_ORIGIN=http://<이 PC의 IP>:3000`을 적는다.
+- 한 번에 서버 하나만 같은 폴더를 열 수 있다(두 번째 서버는 `[로컬 DB] … 쓰고 있습니다` 안내 후 503). 창을 그냥 닫아 남은 잠금은 30초 뒤 자동으로 풀린다.
 - 신뢰 IP 헤더가 없으므로 등록 빈도 제한(10분 5건, 하루 20건)을 이 PC의 모든 접속이 함께 쓴다.
 - 검수: `npm run test:local`.
 
@@ -72,7 +73,7 @@ npm run dev              # http://localhost:3000
 
 | 변수 | 용도 | 운영 전 조건 |
 | --- | --- | --- |
-| DATA_BACKEND | `local`(내장 DB) / `supabase`. 비우면 Supabase 주소가 없을 때만 local | 운영(Vercel)은 supabase |
+| DATA_BACKEND | `local`(내장 DB) / `supabase`. 비우면 개발 서버에서 Supabase 주소가 없을 때만 local | 운영(Vercel)은 supabase |
 | LOCAL_DB_DIR, LOCAL_ADMIN_EMAIL, LOCAL_ADMIN_PASSWORD | 로컬 DB 폴더(기본 .local-db)와 담당자 계정 | 로컬 전용 |
 | NEXT_PUBLIC_SUPABASE_URL | 프로젝트 API URL | 해당 프로젝트 확인 |
 | NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY | 담당자 Auth·JWT client | secret를 넣지 않음 |

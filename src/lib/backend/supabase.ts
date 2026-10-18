@@ -106,11 +106,12 @@ export function supabaseOperatorStore(supabase: SupabaseClient, userId: string):
       if (error || !data) throw mapDbError(error);
       return data as { id: string; status: string; version: number; deleted: boolean };
     },
-    async setTestAutoPublish(enabled) {
-      const { data, error } = await supabase.rpc('admin_set_test_auto_publish', { p_enabled: enabled }).abortSignal(signal());
+    async setTestAutoPublish(enabled, hours) {
+      const { data, error } = await supabase.rpc('admin_set_test_auto_publish', { p_enabled: enabled, p_hours: hours }).abortSignal(signal());
       if (missingFunction(error)) throw new HttpError(503, 'MIGRATION_REQUIRED');
       if (error || !data) throw mapDbError(error);
-      return Boolean((data as { test_auto_publish?: boolean }).test_auto_publish);
+      const r = data as { test_auto_publish?: boolean; test_auto_publish_until?: string | null };
+      return { enabled: Boolean(r.test_auto_publish), until: r.test_auto_publish_until ?? null };
     },
   };
 }

@@ -342,6 +342,7 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.65; }
 .test-mode__text { display: flex; flex-direction: column; gap: 6px; flex: 1 1 420px; min-width: 0; }
 .test-mode .small-heading { margin-top: 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .test-mode--on { border-color: #d9a400; border-left: 3px solid #d9a400; }
+.test-mode__hours select { width: auto; }
 .admin-header__title .env-badge { margin-left: 8px; vertical-align: middle; }
 
 /* 반응형 */

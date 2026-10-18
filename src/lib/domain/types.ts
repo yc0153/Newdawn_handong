@@ -39,7 +39,7 @@ export type AdminOpinion = {
 
 export type AdminAudit = {
   actor_id: string;
-  action: 'save_summary' | 'publish' | 'hide' | 'set_player' | 'delete';
+  action: 'save_summary' | 'publish' | 'hide' | 'set_player' | 'delete' | 'auto_publish';
   version: number;
   created_at: string;
 };
