@@ -42,7 +42,7 @@ export default function LoginForm({ localAuth = false }: { localAuth?: boolean }
       <h1>담당자 로그인</h1>
       <p className="muted">학교가 발급한 개인별 계정으로 로그인합니다. 회원가입은 제공하지 않습니다.</p>
       {localAuth ? (
-        <p className="state state--warn small">로컬 DB 모드입니다. 계정은 프로젝트 폴더의 <code>.local-db/admin-account.txt</code>에 있습니다(이 PC에서만 쓰는 테스트 계정).</p>
+        <p className="state state--warn small">로컬 DB 모드입니다. 계정을 따로 정하지 않았다면 프로젝트 폴더의 <code>.local-db/admin-account.txt</code>에 있습니다(이 PC에서만 쓰는 테스트 계정).</p>
       ) : null}
       <div className="field">
         <label htmlFor="a-email">이메일</label>
