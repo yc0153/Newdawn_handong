@@ -16,6 +16,8 @@ export type PublicConfig = {
   notice_version: string;
   submissions_enabled: boolean;
   allowed_cells: { cell_x: number; cell_y: number }[];
+  /** 테스트 모드: 켜져 있으면 지도 공개를 고른 새 의견이 담당자 검토 없이 바로 공개된다. */
+  test_auto_publish?: boolean;
 };
 
 export type ReviewStatus = 'pending' | 'published' | 'hidden';

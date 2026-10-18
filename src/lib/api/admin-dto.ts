@@ -4,9 +4,9 @@ import type { AdminAudit, AdminOpinion } from '@/lib/domain/types';
 export const ADMIN_COLUMNS =
   'id,category,language,public_lat,public_lon,original_text,allow_map,allow_player,summary,status,include_in_player,version,created_at';
 
-type Row = Omit<AdminOpinion, 'location'> & { public_lat: number; public_lon: number };
+export type AdminRowInput = Omit<AdminOpinion, 'location'> & { public_lat: number; public_lon: number };
 
-export function toAdminOpinion(r: Row): AdminOpinion {
+export function toAdminOpinion(r: AdminRowInput): AdminOpinion {
   return {
     id: r.id,
     category: r.category,

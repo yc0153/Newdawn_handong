@@ -16,6 +16,8 @@ const config: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || '.next',
   reactStrictMode: true,
   poweredByHeader: false,
+  // 로컬 DB 모드의 내장 Postgres(WASM)는 번들하지 않고 node_modules에서 그대로 불러온다.
+  serverExternalPackages: ['@electric-sql/pglite'],
   async headers() {
     return [
       { source: '/:path*', headers: [...common, { key: 'Content-Security-Policy', value: `frame-ancestors ${frameAncestors}` }] },

@@ -12,6 +12,23 @@ npm run dev
 
 `/`는 `/map`으로 이동한다(`?view=browse|place|player`는 각각 `/map`·`/submit`·`/player`). `check`는 lint·typecheck·unit·db test·build를 실행한다. DB 검증은 격리된 PGlite PostgreSQL로 Supabase role/auth 구조를 모형화하며 실제 Supabase 네트워크 호출은 하지 않는다.
 
+### Supabase 없이 바로 실행: 로컬 DB 모드 (2026-10-19)
+
+DB를 만들지 않고도 모든 화면과 API(의견 등록·공개 지도·플레이어·담당자 검토)를 이 PC에서 돌려 볼 수 있다. Docker도 필요 없다.
+
+```bash
+npm ci
+npm run dev:local        # http://localhost:3000  (Windows는 '로컬DB로실행.bat' 더블클릭)
+```
+
+- 데이터는 프로젝트 폴더의 `.local-db/`에 저장된다(Git 제외). 처음 상태로 되돌리려면 서버를 끄고 이 폴더를 지운다.
+- 처음 실행할 때 포항시 전체 등록 영역을 열고, 담당자 계정을 만들어 `.local-db/admin-account.txt`에 적는다. 정해 두려면 `.env.local`에 `LOCAL_ADMIN_EMAIL`·`LOCAL_ADMIN_PASSWORD`(8자 이상).
+- `supabase/migrations`의 SQL을 그대로 적용하므로 공개 조건·권한·멱등·버전 충돌이 Supabase와 같다. 새 마이그레이션은 다음 실행 때 자동으로 적용된다.
+- `.env.local`에 Supabase 값이 있어도 `dev:local`은 로컬 DB를 쓴다. `DATA_BACKEND`를 비워 두면 Supabase 주소가 없을 때만 로컬 DB로 동작한다.
+- 한 번에 서버 하나만 같은 폴더를 열 수 있다(두 번째 서버는 `[로컬 DB] … 쓰고 있습니다` 안내 후 503).
+- 신뢰 IP 헤더가 없으므로 등록 빈도 제한(10분 5건, 하루 20건)을 이 PC의 모든 접속이 함께 쓴다.
+- 검수: `npm run test:local`.
+
 ### 가장 빠른 로컬 실행 (Windows·macOS 공통)
 
 준비: Node.js 22 LTS(22.13 이상) 또는 24, Docker Desktop(Windows는 WSL2 사용 설정). Docker Desktop을 켜 둔다.
@@ -42,7 +59,7 @@ npm run dev              # http://localhost:3000
 
 | 명령 | 필요한 것 |
 | --- | --- |
-| `npm run test:unit`, `npm run test:db` | 없음 |
+| `npm run test:unit`, `npm run test:db`, `npm run test:local` | 없음 |
 | `npm run test:integration` | 로컬 Supabase + 실행 중인 Next 서버. 서버와 테스트 모두 `TRUSTED_CLIENT_IP_HEADER=x-test-client-ip`로 실행(테스트마다 다른 클라이언트로 보이게 함) |
 | `npm run test:e2e:kakao` | 위 준비 + 가짜 카카오 SDK로 만든 두 번째 빌드(:3100). 명령은 `playwright.kakao.config.ts` 머리말 참고 |
 | `npm run test:e2e` | 위와 같음 + 검수용 타일 서버 `npm run tiles:test` + `.env.local`에 `NEXT_PUBLIC_MAP_TILE_URL=http://127.0.0.1:8099/{z}/{x}/{y}.svg`, `NEXT_PUBLIC_MAP_ATTRIBUTION=검수용 테스트 타일` 후 빌드 |
@@ -55,6 +72,8 @@ npm run dev              # http://localhost:3000
 
 | 변수 | 용도 | 운영 전 조건 |
 | --- | --- | --- |
+| DATA_BACKEND | `local`(내장 DB) / `supabase`. 비우면 Supabase 주소가 없을 때만 local | 운영(Vercel)은 supabase |
+| LOCAL_DB_DIR, LOCAL_ADMIN_EMAIL, LOCAL_ADMIN_PASSWORD | 로컬 DB 폴더(기본 .local-db)와 담당자 계정 | 로컬 전용 |
 | NEXT_PUBLIC_SUPABASE_URL | 프로젝트 API URL | 해당 프로젝트 확인 |
 | NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY | 담당자 Auth·JWT client | secret를 넣지 않음 |
 | SUPABASE_SECRET_KEY | 공개 read/submit RPC server-only | 실제 호스트의 비밀 환경 변수 |

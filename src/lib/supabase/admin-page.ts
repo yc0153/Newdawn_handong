@@ -1,7 +1,7 @@
 import 'server-only';
 import { redirect } from 'next/navigation';
 import { HttpError } from '@/lib/api/http';
-import { requireOperator } from './operator';
+import { requireOperator } from '@/lib/backend/operator';
 
 /** 담당자 화면 가드. 미로그인은 로그인으로 보내고, 권한 없음·장애는 상태로 돌려준다. */
 export async function guardAdminPage(): Promise<{ ok: true; userId: string } | { ok: false; status: 'forbidden' | 'unavailable' }> {

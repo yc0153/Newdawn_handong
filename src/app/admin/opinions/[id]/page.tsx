@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import AdminHeader from '@/components/admin/AdminHeader';
+import { isLocalBackend } from '@/lib/backend/mode';
 import AdminDetail from '@/components/admin/AdminDetail';
 import AdminGuardMessage from '@/components/admin/AdminGuardMessage';
 import { guardAdminPage } from '@/lib/supabase/admin-page';
@@ -15,7 +16,7 @@ export default async function AdminOpinionPage({ params }: { params: Promise<{ i
   if (!guard.ok) return <AdminGuardMessage status={guard.status} />;
   return (
     <>
-      <AdminHeader />
+      <AdminHeader localAuth={isLocalBackend()} />
       <main className="admin-main"><AdminDetail id={id} selfId={guard.userId} /></main>
     </>
   );

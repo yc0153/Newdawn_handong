@@ -41,33 +41,43 @@ export default function AdminDetail({ id, selfId }: { id: string; selfId: string
     void load(false);
   }, [load]);
 
-  async function act(body: ActionBody, okText: string) {
+  // 조치 하나 또는 여러 개를 차례로 실행한다(예: 공개 → 상영 포함). 앞 조치가 돌려준 버전으로 다음 조치를 보낸다.
+  async function act(body: ActionBody | ActionBody[], okText: string) {
     if (!detail.data) return;
+    const steps = Array.isArray(body) ? body : [body];
+    let version = detail.data.version;
+    let doneSteps = 0;
     setBusy(true);
     setMessage(null);
     try {
-      const res = await fetch(`/api/admin/opinions/${id}/action`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...body, expected_version: detail.data.version }),
-        cache: 'no-store',
-      });
-      const json = await res.json().catch(() => null);
-      if (res.status === 401) { router.replace('/admin/login'); return; }
-      if (res.ok) {
-        if (body.action === 'delete') { setDeleted(true); return; }
-        setMessage({ kind: 'ok', text: okText });
-        await load(false);
-        return;
+      for (const step of steps) {
+        const res = await fetch(`/api/admin/opinions/${id}/action`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ ...step, expected_version: version }),
+          cache: 'no-store',
+        });
+        const json = await res.json().catch(() => null);
+        if (res.status === 401) { router.replace('/admin/login'); return; }
+        if (!res.ok) {
+          const code = json?.error?.code as string | undefined;
+          if (code === 'VERSION_CONFLICT') {
+            setMessage({ kind: 'conflict', text: '다른 담당자가 먼저 변경했습니다. 최신 내용을 불러온 뒤 다시 확인해 주세요. 작성 중인 요약은 유지됩니다.' });
+          } else if (res.status === 404) {
+            setDetail({ state: 'missing' });
+          } else {
+            const partial = doneSteps > 0 ? '앞 단계는 처리되었습니다. ' : '';
+            setMessage({ kind: 'error', text: partial + (json?.error?.message ?? '처리하지 못했습니다.') });
+          }
+          if (doneSteps > 0) await load(true);
+          return;
+        }
+        if (step.action === 'delete') { setDeleted(true); return; }
+        version = (json as { version: number }).version;
+        doneSteps += 1;
       }
-      const code = json?.error?.code as string | undefined;
-      if (code === 'VERSION_CONFLICT') {
-        setMessage({ kind: 'conflict', text: '다른 담당자가 먼저 변경했습니다. 최신 내용을 불러온 뒤 다시 확인해 주세요. 작성 중인 요약은 유지됩니다.' });
-      } else if (res.status === 404) {
-        setDetail({ state: 'missing' });
-      } else {
-        setMessage({ kind: 'error', text: json?.error?.message ?? '처리하지 못했습니다.' });
-      }
+      setMessage({ kind: 'ok', text: okText });
+      await load(false);
     } catch {
       setMessage({ kind: 'error', text: '연결 문제로 결과를 확인하지 못했습니다. 최신 내용을 불러와 확인해 주세요.' });
     } finally {
@@ -101,7 +111,9 @@ export default function AdminDetail({ id, selfId }: { id: string; selfId: string
   const dirty = summary !== (d.summary ?? '');
   const summaryLen = textLengths(summary).total;
   const summaryValid = validSummary(summary);
-  const canPublish = d.allow_map && !!d.summary && !dirty && d.status !== 'published';
+  // 고친 요약이 있으면 공개 버튼이 요약 저장부터 함께 한다(요약 저장 → 공개 → 상영 포함 순서, 각각 이력에 남음).
+  const canPublish = d.allow_map && d.status !== 'published' && (dirty ? summaryValid : !!d.summary);
+  const saveFirst: ActionBody[] = dirty ? [{ action: 'save_summary', summary }] : [];
   const canPlayer = d.allow_map && d.allow_player;
   const group = [{ key: d.id, lat: d.location.lat, lon: d.location.lon, count: 1, category: d.category, active: true, label: '대략 위치' }];
 
@@ -154,15 +166,19 @@ export default function AdminDetail({ id, selfId }: { id: string; selfId: string
           </div>
           <div className="action-row">
             <button type="button" className="btn" disabled={busy || d.status === 'published' || !dirty || !summaryValid} onClick={() => void act({ action: 'save_summary', summary }, '요약을 저장했습니다.')}>요약 저장</button>
+            {d.status !== 'published' && canPlayer ? (
+              <button type="button" className="btn btn--primary" disabled={busy || !canPublish} onClick={() => void act([...saveFirst, { action: 'publish' }, { action: 'set_player', include_in_player: true }], '지도에 공개하고 플레이어 상영에도 넣었습니다. 바로 반영됩니다.')}>지도·플레이어에 공개</button>
+            ) : null}
             {d.status !== 'published' ? (
-              <button type="button" className="btn btn--primary" disabled={busy || !canPublish} onClick={() => void act({ action: 'publish' }, '공개했습니다. 공개 지도에 바로 반영됩니다.')}>지도에 공개</button>
+              <button type="button" className={canPlayer ? 'btn' : 'btn btn--primary'} disabled={busy || !canPublish} onClick={() => void act([...saveFirst, { action: 'publish' }], '공개했습니다. 공개 지도에 바로 반영됩니다.')}>{canPlayer ? '지도에만 공개' : '지도에 공개'}</button>
             ) : (
               <button type="button" className="btn" disabled={busy} onClick={() => void act({ action: 'hide' }, '숨겼습니다. 공개 지도와 플레이어에서 제외됩니다.')}>숨김</button>
             )}
             {d.status === 'pending' ? <button type="button" className="btn" disabled={busy} onClick={() => void act({ action: 'hide' }, '숨김으로 두었습니다.')}>공개하지 않고 숨김</button> : null}
           </div>
           {!d.allow_map ? <p className="muted small">작성자가 지도 공개를 선택하지 않아 공개할 수 없습니다.</p> : null}
-          {d.allow_map && dirty ? <p className="muted small">요약을 저장해야 공개할 수 있습니다.</p> : null}
+          {d.allow_map && dirty && d.status !== 'published' ? <p className="muted small">{summaryValid ? '공개 버튼을 누르면 고친 요약을 먼저 저장한 뒤 공개합니다.' : '요약을 250자 이하로 입력해야 공개할 수 있습니다.'}</p> : null}
+          {d.allow_map && !d.summary && !dirty && d.status !== 'published' ? <p className="muted small">공개하려면 먼저 공개 요약을 입력하세요.</p> : null}
 
           <h2 className="small-heading">플레이어 상영</h2>
           {canPlayer ? (

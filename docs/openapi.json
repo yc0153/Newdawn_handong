@@ -754,6 +754,240 @@
           }
         }
       }
+    },
+    "/api/admin/settings": {
+      "get": {
+        "summary": "Read test-mode setting (active operator)",
+        "responses": {
+          "200": {
+            "description": "Settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "test_auto_publish": {
+                      "type": "boolean"
+                    },
+                    "test_auto_publish_supported": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "test_auto_publish",
+                    "test_auto_publish_supported"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Turn test mode on or off (active operator, same origin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "test_auto_publish": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "test_auto_publish"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "test_auto_publish": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "test_auto_publish"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/session": {
+      "post": {
+        "summary": "Local DB mode only: operator sign-in, sets an HttpOnly signed cookie. 404 in Supabase mode.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed in"
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Local DB mode only: sign out",
+        "responses": {
+          "200": {
+            "description": "Signed out"
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -894,13 +1128,18 @@
             "items": {
               "$ref": "#/components/schemas/Cell"
             }
+          },
+          "test_auto_publish": {
+            "type": "boolean",
+            "description": "Test mode: new map-consented opinions are published without staff review. False until the 2026-10-19 SQL is applied."
           }
         },
         "required": [
           "grid_version",
           "notice_version",
           "submissions_enabled",
-          "allowed_cells"
+          "allowed_cells",
+          "test_auto_publish"
         ]
       },
       "Submission": {
@@ -983,11 +1222,16 @@
           },
           "message": {
             "type": "string"
+          },
+          "published": {
+            "type": "boolean",
+            "description": "True only when test mode published this new opinion immediately."
           }
         },
         "required": [
           "reference",
-          "message"
+          "message",
+          "published"
         ]
       },
       "AdminOpinion": {

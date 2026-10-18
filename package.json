@@ -7,13 +7,15 @@
   },
   "scripts": {
     "dev": "next dev",
+    "dev:local": "node scripts/dev-local.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
     "test:unit": "tsx --test tests/domain.test.ts tests/logic.test.ts",
     "test:db": "tsx --test tests/database.test.ts",
-    "check": "npm run lint && npm run typecheck && npm run test:unit && npm run test:db && npm run build",
+    "test:local": "tsx --conditions=react-server --test tests/local-backend.test.ts",
+    "check": "npm run lint && npm run typecheck && npm run test:unit && npm run test:db && npm run test:local && npm run build",
     "test:integration": "node --env-file=.env.local --import tsx --test --test-concurrency=1 tests/integration/api.test.ts",
     "test:e2e": "playwright test",
     "tiles:test": "node tests/e2e/tile-server.mjs",
@@ -22,6 +24,7 @@
     "test:e2e:kakao": "playwright test -c playwright.kakao.config.ts"
   },
   "dependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.117.2",
     "leaflet": "1.9.4",
@@ -31,7 +34,6 @@
     "server-only": "0.0.1"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.8",
     "@next/eslint-plugin-next": "16.3.8",
     "@playwright/test": "1.56.0",
     "@types/leaflet": "1.9.22",

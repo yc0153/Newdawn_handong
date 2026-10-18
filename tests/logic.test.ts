@@ -108,15 +108,23 @@ test('http: 8KB limit, JSON object only, content type, same origin', async () =>
   await assert.rejects(readJsonObject(req('{}', { 'content-type': 'text/plain' })), (e: HttpError) => e.code === 'UNSUPPORTED_MEDIA_TYPE');
   await assert.rejects(readJsonObject(req(new Uint8Array([0x7b, 0xff, 0x7d]))), (e: HttpError) => e.code === 'INVALID_JSON');
   const prev = process.env.APP_ORIGIN;
+  const prevBackend = process.env.DATA_BACKEND;
   process.env.APP_ORIGIN = 'http://localhost:3000';
+  process.env.DATA_BACKEND = 'supabase';
   try {
     assert.doesNotThrow(() => assertSameOrigin(new Request('http://x', { headers: { origin: 'http://localhost:3000' } })));
     assert.throws(() => assertSameOrigin(new Request('http://x', { headers: { origin: 'http://localhost:3001' } })), /CROSS_ORIGIN/);
     assert.throws(() => assertSameOrigin(new Request('http://x')), /CROSS_ORIGIN/);
     delete process.env.APP_ORIGIN;
     assert.throws(() => assertSameOrigin(new Request('http://x', { headers: { origin: 'http://localhost:3000' } })), /CONFIG_INCOMPLETE/);
+    // 로컬 DB 모드는 APP_ORIGIN이 없으면 요청을 받은 주소만 허용한다
+    process.env.DATA_BACKEND = 'local';
+    assert.doesNotThrow(() => assertSameOrigin(new Request('http://127.0.0.1:3000/api/opinions', { headers: { origin: 'http://127.0.0.1:3000' } })));
+    assert.throws(() => assertSameOrigin(new Request('http://127.0.0.1:3000/api/opinions', { headers: { origin: 'http://evil.test' } })), /CROSS_ORIGIN/);
+    assert.throws(() => assertSameOrigin(new Request('http://127.0.0.1:3000/api/opinions')), /CROSS_ORIGIN/);
   } finally {
     if (prev === undefined) delete process.env.APP_ORIGIN; else process.env.APP_ORIGIN = prev;
+    if (prevBackend === undefined) delete process.env.DATA_BACKEND; else process.env.DATA_BACKEND = prevBackend;
   }
 });
 

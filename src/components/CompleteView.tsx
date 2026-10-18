@@ -2,11 +2,11 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from './I18nProvider';
-import { peekReceipt } from '@/lib/client/receipt';
+import { peekReceipt, type Receipt } from '@/lib/client/receipt';
 
 export default function CompleteView() {
   const { t } = useI18n();
-  const [receipt, setReceiptState] = useState<{ reference: string } | null | undefined>(undefined);
+  const [receipt, setReceiptState] = useState<Receipt | null | undefined>(undefined);
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     setReceiptState(peekReceipt());
@@ -29,8 +29,8 @@ export default function CompleteView() {
   return (
     <section className="card complete-card" aria-labelledby="complete-title">
       <span className="complete-check" aria-hidden="true">✓</span>
-      <h2 id="complete-title" ref={heading} tabIndex={-1}>{t('complete.title')}</h2>
-      <p>{t('complete.body')}</p>
+      <h2 id="complete-title" ref={heading} tabIndex={-1}>{receipt.published ? t('complete.titlePublished') : t('complete.title')}</h2>
+      <p>{receipt.published ? (receipt.player ? t('complete.bodyPublishedPlayer') : t('complete.bodyPublished')) : receipt.player ? t('complete.bodyPlayer') : t('complete.body')}</p>
       <div className="reference-box">
         <span className="muted">{t('complete.reference')}</span>
         <strong className="reference">{receipt.reference}</strong>
@@ -38,6 +38,7 @@ export default function CompleteView() {
       </div>
       <div className="complete-actions">
         <Link href="/map" className="btn btn--primary btn--block">{t('complete.toMap')} <span aria-hidden="true">→</span></Link>
+        {receipt.published && receipt.player ? <a href="/player" target="_blank" rel="noopener" className="btn btn--block">{t('complete.toPlayer')} <span aria-hidden="true">↗</span></a> : null}
         <Link href="/submit" className="link-btn">{t('complete.another')}</Link>
       </div>
     </section>

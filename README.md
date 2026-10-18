@@ -14,6 +14,8 @@
 
 ## 바로 사용하기
 
+- **DB 없이 바로 써 보기:** `npm ci` → `npm run dev:local` (Windows는 `로컬DB로실행.bat`). 내장 DB가 `.local-db/`에 만들어지고, 담당자 계정은 `.local-db/admin-account.txt`에 있다. 자세한 내용은 [설정 안내](docs/SETUP.md)의 ‘로컬 DB 모드’.
+
 1. `npm ci` → `npm run check`로 기반 검사를 통과하는지 확인한다.
 2. [설정 안내](docs/SETUP.md)의 ‘로컬에서 전체 흐름 띄우기’대로 로컬 Supabase·테스트 영역·담당자 계정을 만들고 `npm run dev`.
 3. 이어서 개발 AI에게 맡길 때는 이 폴더와 [AGENTS.md](AGENTS.md)를 함께 주고, 남은 일은 [VERIFICATION.md](docs/VERIFICATION.md)의 ‘아직 검증하지 않은 범위’부터 시작한다. 비밀키는 채팅에 붙이지 않는다.
@@ -40,6 +42,8 @@
 | supabase/migrations/ | CLI가 생성한 초기 마이그레이션 |
 | src/lib/domain/ | 입력 검증, 격자화, 플레이어 신선도 공통 함수 |
 | src/lib/supabase/ | 브라우저·서버·관리자 인증 연결 기반 |
+| src/lib/backend/ | 저장소 선택(Supabase / 로컬 DB)과 각 구현. 로컬 DB는 같은 마이그레이션 SQL을 PGlite로 실행 |
+| supabase/manual/ | Supabase SQL Editor에 붙여 넣는 SQL(새 프로젝트 전체, 날짜별 업데이트) |
 | reference/ | 원문 PDF의 변경하지 않은 복사본 |
 
 실제 의견처럼 보이는 예시 데이터는 넣지 않았다(`supabase/seed.sql`은 비어 있고, `supabase/dev/local_dev_setup.sql`은 로컬 테스트 영역만 연다). 클라우드 프로젝트 생성, 배포, 기존 lip.center 변경은 하지 않았다.

@@ -27,7 +27,7 @@ query `mode=browse|player`, 기본 browse. SQL의 공개 조건을 매 요청 �
 
 ## GET /api/public/config
 
-한·영 작성 안내 버전, grid_version, 허용 cell_x/y 목록, submissions_enabled를 반환한다. 비밀정보·원문은 없다. 격자 계산 상수는 grid_version과 함께 클라이언트 코드에 둔다. 허용 셀은 서버 목록과 일치해야 하며 빈 목록이면 위치 선택·등록을 운영 가능으로 표시하지 않는다. 원문에는 config API가 없으며 이는 서버 허용 지역을 클라이언트와 공유하기 위한 구현 선택이다.
+한·영 작성 안내 버전, grid_version, 허용 cell_x/y 목록, submissions_enabled, test_auto_publish(테스트 모드, 2026-10-19 SQL 적용 전 DB는 false)를 반환한다. 비밀정보·원문은 없다. 격자 계산 상수는 grid_version과 함께 클라이언트 코드에 둔다. 허용 셀은 서버 목록과 일치해야 하며 빈 목록이면 위치 선택·등록을 운영 가능으로 표시하지 않는다. 원문에는 config API가 없으며 이는 서버 허용 지역을 클라이언트와 공유하기 위한 구현 선택이다.
 
 ## POST /api/opinions
 
@@ -52,8 +52,10 @@ header `Idempotency-Key: UUID`. 서버는 JSON 최대 8KB를 검사한다. 원�
 응답 201 신규 / 200 같은 키 재시도:
 
 ```json
-{"reference":"OP-독립된참고번호","message":"의견이 등록되었습니다. 담당자가 확인하기 전에는 공개되지 않습니다."}
+{"reference":"OP-독립된참고번호","message":"의견이 등록되었습니다. 담당자가 확인하기 전에는 공개되지 않습니다.","published":false}
 ```
+
+`published`는 테스트 모드(`service_settings.test_auto_publish`)가 켜져 있고 작성자가 지도 공개를 고른 새 의견일 때만 true다. 이때 원문 앞 250자(넘치면 249자+…)를 요약으로 바로 공개하고, 플레이어 공개도 골랐으면 상영에도 포함한다. 같은 키 재시도(200)는 `published:false`로 돌려준다.
 
 `reference`만으로 원문·상태를 조회할 endpoint는 없다. 같은 키의 다른 payload는 `IDEMPOTENCY_CONFLICT` 409. 정상 저장 후 삭제된 의견을 같은 키로 재시도해도 다시 만들지 않고 영수증만 반환한다. 키는 임의 UUID일 뿐 데이터 복구·조회권한이 아니다. `SUBMISSIONS_DISABLED` 503, `OUTSIDE_AREA` 422, `INVALID_CONSENT` 422, `TEXT_TOO_SHORT`/`TEXT_TOO_LONG` 422, `RATE_LIMITED` 429를 구분한다. 실패 시 같은 화면에서 입력을 보존한다.
 
@@ -84,3 +86,19 @@ body `{action,expected_version,summary? ,include_in_player?}`. `action`에 따�
 DB에서 행을 잠그고 expected_version을 확인한다. 실제 변경 시 version+1, 최소 감사 이력 INSERT를 같은 트랜잭션으로 커밋한다. 요약 수정·공개가 분리되어 있어 우연히 원문을 자동 공개하지 않는다. 읽기 시점보다 version이 변했으면 `VERSION_CONFLICT` 409. 실패하거나 이력 기록이 실패하면 변경도 롤백한다.
 
 성공 `{id,status,version,deleted}`. 이미 같은 값인 조치는 no-op으로 기존 version을 유지한다. 비밀 정보·raw payload가 오류에 나오지 않도록 DB 오류→안전한 HTTP 오류 code mapping을 작성한다. HTTP를 거치지 않은 authenticated RPC 호출도 비담당자면 거절해야 한다.
+
+## 테스트 모드 설정 (2026-10-19)
+
+`GET /api/admin/settings` → `{test_auto_publish, test_auto_publish_supported}` (활성 담당자만). `supported=false`는 DB에 2026-10-19 SQL이 아직 없다는 뜻이다.
+
+`POST /api/admin/settings` body `{test_auto_publish: boolean}` → `{test_auto_publish}`. Same Origin·활성 담당자만. DB RPC `admin_set_test_auto_publish`가 함수 안에서 담당자 명단을 다시 확인한다. SQL 미적용이면 `MIGRATION_REQUIRED` 503.
+
+## 로컬 DB 모드 (2026-10-19)
+
+`DATA_BACKEND=local`(또는 Supabase 주소가 없고 Vercel이 아닐 때)이면 위 모든 경로가 같은 계약으로 내장 PGlite DB를 쓴다. `supabase/migrations`를 그대로 적용하므로 RPC·RLS·트리거·오류 코드가 같다. 다른 점은 담당자 로그인뿐이다.
+
+- `POST /api/admin/session` body `{email,password}` → 200 `{ok:true}` + HttpOnly 서명 쿠키(8시간). 실패 401 `INVALID_CREDENTIALS`, 담당자 아님 403. Same Origin만.
+- `DELETE /api/admin/session` → 쿠키 삭제.
+- Supabase 모드에서는 두 경로 모두 404다(로그인은 브라우저의 Supabase Auth).
+- 로컬 모드에서 `APP_ORIGIN`을 비우면 요청을 받은 주소를 Same Origin 기준으로 쓴다.
+

@@ -32,7 +32,7 @@ async function role(db:PGlite,r:string,id=''){
 }
 async function submit(db:PGlite,key=randomUUID(),text='1234567890',consent:[boolean,boolean]=[true,true],fingerprint=hash(text),rate=hash(key)){
   await role(db,'service_role');
-  const r=await db.query<{result:{reference:string;created:boolean}}>(
+  const r=await db.query<{result:{reference:string;created:boolean;published?:boolean}}>(
     'select public.submit_opinion($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) as result',
     [key,fingerprint,rate,'pohang-v1',41,28,'transport','ko',text,...consent,'2026-10-06-v1']);
   return r.rows[0].result;
@@ -195,5 +195,43 @@ test('operators cannot bypass the RPC with direct updates; RPC still enforces me
     assert.equal(r.rows[0].include_in_player,false);
     const a=await db.query<{action:string}>('select action from public.admin_audit_logs where opinion_id=$1 order by version',[row.id]);
     assert.deepEqual(a.rows.map(x=>x.action),['save_summary','publish','set_player','hide']);
+  }finally{await db.close();}
+});
+test('test mode auto-publish: off by default, respects consent, truncates, operator-only switch',async()=>{
+  const db=await boot();try{
+    await db.exec('update public.service_settings set submissions_enabled=true');
+    await role(db,'service_role');
+    const config=(await db.query<{c:{test_auto_publish:boolean}}>('select public.read_public_config() as c')).rows[0].c;
+    assert.equal(config.test_auto_publish,false);
+    const off=await submit(db);
+    assert.equal(off.published,false);assert.equal((await publicData(db)).length,0);
+    // only an active operator can switch it
+    await role(db,'anon');
+    await assert.rejects(()=>db.query('select public.admin_set_test_auto_publish(true)'),/permission denied/);
+    await role(db,'service_role');
+    await assert.rejects(()=>db.query('select public.admin_set_test_auto_publish(true)'),/permission denied/);
+    await role(db,'authenticated',outsider);
+    await assert.rejects(()=>db.query('select public.admin_set_test_auto_publish(true)'),/FORBIDDEN/);
+    await role(db,'authenticated',operator);
+    await db.query('select public.admin_set_test_auto_publish(true)');
+    // map+player consent → published and in the player; map only → map; none → stays pending
+    const both=await submit(db,randomUUID(),'  플레이어까지 공개하는 의견입니다  ',[true,true]);
+    const mapOnly=await submit(db,randomUUID(),'지도에만 공개하는 의견입니다',[true,false]);
+    const none=await submit(db,randomUUID(),'공개하지 않는 의견입니다 비공개',[false,false]);
+    assert.deepEqual([both.published,mapOnly.published,none.published],[true,true,false]);
+    const browse=await publicData(db);const player=await publicData(db,'player');
+    assert.deepEqual(browse.map(x=>x.summary),['플레이어까지 공개하는 의견입니다','지도에만 공개하는 의견입니다']);
+    assert.deepEqual(player.map(x=>x.summary),['플레이어까지 공개하는 의견입니다']);
+    const long='가'.repeat(400);
+    await submit(db,randomUUID(),long,[true,true]);
+    const last=(await publicData(db,'player')).at(-1)!.summary as string;
+    assert.equal([...last].length,250);assert.ok(last.endsWith('…'));
+    // auto-published opinions still go through the normal operator flow afterwards
+    const rows=await raw(db);const auto=rows.find(r=>r.summary==='지도에만 공개하는 의견입니다')!;
+    const hidden=await action(db,auto.id,auto.version,'hide');assert.equal(hidden.status,'hidden');
+    assert.equal((await publicData(db)).length,2);
+    await role(db,'authenticated',operator);await db.query('select public.admin_set_test_auto_publish(false)');
+    const after=await submit(db,randomUUID(),'다시 검토를 거치는 의견입니다',[true,true]);
+    assert.equal(after.published,false);
   }finally{await db.close();}
 });

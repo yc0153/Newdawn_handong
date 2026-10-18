@@ -338,6 +338,11 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.65; }
 .callout { border: 1px solid #cfe0e9; border-left: 3px solid var(--primary); background: var(--primary-tint); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .audit { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
 .audit li { display: flex; gap: 4px 12px; flex-wrap: wrap; }
+.test-mode { display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 12px; padding: 14px 18px; }
+.test-mode__text { display: flex; flex-direction: column; gap: 6px; flex: 1 1 420px; min-width: 0; }
+.test-mode .small-heading { margin-top: 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.test-mode--on { border-color: #d9a400; border-left: 3px solid #d9a400; }
+.admin-header__title .env-badge { margin-left: 8px; vertical-align: middle; }
 
 /* 반응형 */
 @media (max-width: 1024px) {

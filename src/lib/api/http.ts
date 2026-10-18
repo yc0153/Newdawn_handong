@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isLocalBackend } from '@/lib/backend/mode';
 
 export const MAX_BODY_BYTES = 8 * 1024;
 export const UPSTREAM_TIMEOUT_MS = 10_000;
@@ -55,6 +56,8 @@ const MESSAGES: Record<string, string> = {
   INVALID_SUMMARY: '요약은 공백만으로 만들 수 없고 250자 이하여야 합니다.',
   PUBLICATION_NOT_ALLOWED: '작성자가 지도 공개를 선택하고 요약이 저장된 의견만 공개할 수 있습니다.',
   PLAYER_NOT_ALLOWED: '작성자가 지도·플레이어 공개를 모두 선택한 의견만 상영에 포함할 수 있습니다.',
+  INVALID_CREDENTIALS: '이메일 또는 비밀번호를 확인해 주세요.',
+  MIGRATION_REQUIRED: 'DB 업데이트가 필요합니다. 안내된 SQL을 Supabase SQL Editor에서 실행해 주세요.',
 };
 
 export function errorResponse(status: number, code: string, field?: string) {
@@ -71,9 +74,13 @@ export function fromHttpError(e: unknown) {
   return errorResponse(503, 'SERVICE_UNAVAILABLE');
 }
 
-/** 같은 출처의 브라우저 요청만 허용한다. APP_ORIGIN이 없으면 안전하게 실패한다. */
+/**
+ * 같은 출처의 브라우저 요청만 허용한다. APP_ORIGIN이 없으면 안전하게 실패한다.
+ * 로컬 DB 모드(PC 한 대에서 실행)에서 APP_ORIGIN을 비워 두면 요청을 받은 주소를 기준으로 삼는다.
+ */
 export function assertSameOrigin(request: Request) {
-  const expected = process.env.APP_ORIGIN;
+  let expected = process.env.APP_ORIGIN;
+  if (!expected && isLocalBackend()) expected = new URL(request.url).origin;
   if (!expected) throw new HttpError(503, 'CONFIG_INCOMPLETE');
   const origin = request.headers.get('origin');
   if (!origin || origin !== new URL(expected).origin) throw new HttpError(403, 'CROSS_ORIGIN');

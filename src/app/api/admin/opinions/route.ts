@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
-import { fromHttpError, HttpError, json, logRequest, UPSTREAM_TIMEOUT_MS } from '@/lib/api/http';
-import { requireOperator } from '@/lib/supabase/operator';
-import { ADMIN_COLUMNS, toAdminOpinion } from '@/lib/api/admin-dto';
+import { fromHttpError, HttpError, json, logRequest } from '@/lib/api/http';
+import { requireOperator } from '@/lib/backend/operator';
+import { toAdminOpinion, type AdminRowInput } from '@/lib/api/admin-dto';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,21 +17,10 @@ export async function GET(request: NextRequest) {
     if (!STATUSES.includes(status) || !Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100) {
       throw new HttpError(400, 'INVALID_QUERY');
     }
-    const { supabase } = await requireOperator();
-    let query = supabase
-      .from('opinions')
-      .select(ADMIN_COLUMNS, { count: 'exact' })
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: false })
-      .range((page - 1) * pageSize, page * pageSize - 1)
-      .abortSignal(AbortSignal.timeout(UPSTREAM_TIMEOUT_MS));
-    if (status !== 'all') query = query.eq('status', status);
-    const { data, error, count } = await query;
-    if (error) throw new HttpError(503, 'SERVICE_UNAVAILABLE');
+    const operator = await requireOperator();
+    const { rows, total } = await operator.listOpinions({ status, page, pageSize });
     logRequest('admin/opinions', 200, started);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return json({ data: (data ?? []).map((r: any) => toAdminOpinion(r)), page, page_size: pageSize, total: count ?? 0 });
+    return json({ data: rows.map((r) => toAdminOpinion(r as AdminRowInput)), page, page_size: pageSize, total });
   } catch (e) {
     const res = fromHttpError(e);
     logRequest('admin/opinions', res.status, started, e instanceof HttpError ? e.code : 'UNEXPECTED');

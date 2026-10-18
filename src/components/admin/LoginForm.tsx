@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
-export default function LoginForm() {
+export default function LoginForm({ localAuth = false }: { localAuth?: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,8 +14,21 @@ export default function LoginForm() {
     setBusy(true);
     setError(null);
     try {
-      const { error: err } = await createClient().auth.signInWithPassword({ email: email.trim(), password });
-      if (err) { setError('이메일 또는 비밀번호를 확인해 주세요.'); return; }
+      if (localAuth) {
+        // 로컬 DB 모드: 서버가 계정을 확인하고 HttpOnly 세션 쿠키를 준다.
+        const res = await fetch('/api/admin/session', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ email: email.trim(), password }),
+          cache: 'no-store',
+        });
+        if (res.status === 401 || res.status === 400) { setError('이메일 또는 비밀번호를 확인해 주세요.'); return; }
+        if (res.status === 403) { setError('담당자 권한이 없는 계정입니다.'); return; }
+        if (!res.ok) throw new Error(String(res.status));
+      } else {
+        const { error: err } = await createClient().auth.signInWithPassword({ email: email.trim(), password });
+        if (err) { setError('이메일 또는 비밀번호를 확인해 주세요.'); return; }
+      }
       router.replace('/admin/opinions');
       router.refresh();
     } catch {
@@ -28,6 +41,9 @@ export default function LoginForm() {
     <form className="card admin-login" onSubmit={submit} noValidate>
       <h1>담당자 로그인</h1>
       <p className="muted">학교가 발급한 개인별 계정으로 로그인합니다. 회원가입은 제공하지 않습니다.</p>
+      {localAuth ? (
+        <p className="state state--warn small">로컬 DB 모드입니다. 계정은 프로젝트 폴더의 <code>.local-db/admin-account.txt</code>에 있습니다(이 PC에서만 쓰는 테스트 계정).</p>
+      ) : null}
       <div className="field">
         <label htmlFor="a-email">이메일</label>
         <input id="a-email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />

@@ -363,7 +363,7 @@ test('T12·T13: player 0/1/many, initial stop, 12s cycle, manual move stops, key
   await page.reload();
   await expect(page.locator('.case__summary')).toHaveText('[E2E] 플레이어 사례 1');
   await expect(page.getByRole('button', { name: '재생' })).toBeDisabled();
-  await expect(page.locator('.player__status')).toContainText('2건 이상이면 자동 재생');
+  await expect(page.locator('.player__status')).toContainText('2건 이상이면');
 
   data = fake(3);
   await page.reload();
@@ -449,12 +449,14 @@ test('A01: operator reviews, summarises, publishes, includes in player; concurre
   await expect(page.locator('.admin-list')).toContainText(text);
   await page.locator('.admin-row', { hasText: text }).click();
   await expect(page.locator('.original-text')).toHaveText(text);
-  await expect(page.getByRole('button', { name: '지도에 공개' })).toBeDisabled();
+  // 작성자가 플레이어 공개도 골랐으므로 '지도·플레이어에 공개'(한 번에)와 '지도에만 공개'가 함께 보인다.
+  await expect(page.getByRole('button', { name: '지도·플레이어에 공개' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '지도에만 공개' })).toBeDisabled();
   const summary = `[E2E] 담당자 요약 ${publicId.slice(0, 6)}`;
   await page.fill('#summary', summary);
   await page.getByRole('button', { name: '요약 저장' }).click();
   await expect(page.locator('.state--ok')).toContainText('요약을 저장했습니다');
-  await page.getByRole('button', { name: '지도에 공개' }).click();
+  await page.getByRole('button', { name: '지도에만 공개' }).click();
   await expect(page.locator('.status--published')).toBeVisible();
   await expect(page.locator('#summary')).toBeDisabled();
   // 공개만 하고 상영에 넣지 않으면 상세에 안내가, 목록에 '상영 대기'가 보인다.

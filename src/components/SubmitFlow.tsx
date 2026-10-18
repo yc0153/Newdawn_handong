@@ -235,7 +235,7 @@ export default function SubmitFlow() {
       if (res.status === 201 || res.status === 200) {
         if (!body || typeof body.reference !== 'string') throw new Error('shape');
         setDone(true);
-        setReceipt({ reference: body.reference });
+        setReceipt({ reference: body.reference, published: body.published === true, player: draft.allowMap && draft.allowPlayer });
         router.push('/submit/complete');
         return;
       }
@@ -410,6 +410,7 @@ export default function SubmitFlow() {
               </div>
             </fieldset>
 
+            {config.data?.test_auto_publish ? <p className="state state--warn small" role="note">{t('submit.testMode')}</p> : null}
             {submitError ? <p className="state state--error" role="alert">{t(submitError)}</p> : null}
             <button type="submit" className="btn btn--primary btn--block" disabled={submitting || done}>
               {submitting || done ? t('panel.submitting') : t('panel.submit')} <span aria-hidden="true">→</span>

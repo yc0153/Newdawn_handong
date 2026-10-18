@@ -36,7 +36,7 @@ test('public endpoints: no-store, 4 fields only, mode validation', async () => {
   assert.equal(bad.status, 400);
   const cfg = await fetch(`${BASE}/api/public/config`);
   const body = await cfg.json();
-  assert.deepEqual(Object.keys(body).sort(), ['allowed_cells', 'grid_version', 'notice_version', 'submissions_enabled']);
+  assert.deepEqual(Object.keys(body).sort(), ['allowed_cells', 'grid_version', 'notice_version', 'submissions_enabled', 'test_auto_publish']);
 });
 
 test('submission validation, idempotency, consent dependency and receipt format (T07, T11, X03-X05)', async () => {
@@ -45,7 +45,8 @@ test('submission validation, idempotency, consent dependency and receipt format 
   const first = await submit(body, { key });
   assert.equal(first.status, 201);
   assert.match(first.body.reference, /^OP-[0-9a-f-]{36}$/);
-  assert.deepEqual(Object.keys(first.body).sort(), ['message', 'reference']);
+  assert.deepEqual(Object.keys(first.body).sort(), ['message', 'published', 'reference']);
+  assert.equal(first.body.published, false);
   const retry = await submit(body, { key });
   assert.equal(retry.status, 200);
   assert.equal(retry.body.reference, first.body.reference);
