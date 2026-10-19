@@ -10,3 +10,4 @@ supabase/.branches/
 test-results/
 playwright-report/
 .local-db/
+.next-local-e2e/

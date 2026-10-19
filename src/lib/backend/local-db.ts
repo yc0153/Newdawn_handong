@@ -2,7 +2,7 @@ import 'server-only';
 // 로컬 DB 모드: 내장 Postgres(PGlite, WASM)를 프로젝트 폴더의 .local-db에 둔다.
 // Supabase와 같은 supabase/migrations SQL을 그대로 적용하므로 RPC·RLS·트리거·제약이 같다.
 // Supabase에만 있는 것(역할 anon/authenticated/service_role, auth.users, auth.uid())은 최소한으로 흉내 낸다.
-// 한 프로세스만 이 폴더를 열 수 있다(.local-db/server.lock, 10초마다 갱신).
+// 한 프로세스만 이 폴더를 열 수 있다(.local-db/server.lock, 5초마다 갱신).
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -30,8 +30,8 @@ function state(): State {
 export const DEFAULT_LOCAL_ADMIN_EMAIL = 'admin@local.test';
 const ACCOUNT_FILE = 'admin-account.txt';
 const LOCK_FILE = 'server.lock';
-const LOCK_REFRESH_MS = 10_000;
-const LOCK_STALE_MS = 30_000;
+const LOCK_REFRESH_MS = 5_000;
+const LOCK_STALE_MS = 15_000;
 const RETRY_AFTER_FAILURE_MS = 5_000;
 /** 한 작업(트랜잭션)이 이보다 오래 걸리면 기다리던 요청에 503을 돌려준다(Supabase 경로의 10초와 비슷하게). */
 export const LOCAL_JOB_TIMEOUT_MS = 15_000;
@@ -76,8 +76,8 @@ create table if not exists local_app.accounts(
 `;
 
 /**
- * 폴더 잠금. 서버가 켜져 있는 동안 10초마다 잠금 파일 시각을 갱신한다.
- * 다른 프로세스의 잠금이 30초 안에 갱신됐으면 열지 않는다. 창을 닫아 남은 잠금은 30초 뒤 자동으로 무시된다
+ * 폴더 잠금. 서버가 켜져 있는 동안 5초마다 잠금 파일 시각을 갱신한다.
+ * 다른 프로세스의 잠금이 15초 안에 갱신됐으면 열지 않는다. 창을 닫아 남은 잠금은 15초 뒤 자동으로 무시된다
  * (pid 재사용으로 엉뚱한 프로세스를 '살아 있음'으로 보지 않도록 pid 대신 갱신 시각을 본다).
  */
 function claimFolder(dir: string) {
@@ -87,7 +87,7 @@ function claimFolder(dir: string) {
     try { owner = Number(JSON.parse(readFileSync(file, 'utf8')).pid); } catch { /* 깨진 잠금은 무시 */ }
     const fresh = Date.now() - statSync(file).mtimeMs < LOCK_STALE_MS;
     if (owner !== process.pid && fresh) {
-      throw new Error(`LOCAL_DB_BUSY: 다른 서버가 ${dir}를 쓰고 있습니다. 먼저 켠 서버 창을 닫고 30초 뒤 다시 실행하세요.`);
+      throw new Error(`LOCAL_DB_BUSY: 다른 서버가 ${dir}를 쓰고 있습니다. 다른 서버 창이 열려 있으면 닫으세요. 방금 창을 닫았다면 15초 안에 저절로 이어집니다.`);
     }
   }
   const write = () => { try { writeFileSync(file, JSON.stringify({ pid: process.pid, at: new Date().toISOString() })); } catch { /* ignore */ } };

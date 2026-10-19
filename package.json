@@ -21,7 +21,8 @@
     "tiles:test": "node tests/e2e/tile-server.mjs",
     "operator:local": "node --env-file=.env.local scripts/create-local-operator.mjs",
     "local:setup": "node scripts/local-setup.mjs",
-    "test:e2e:kakao": "playwright test -c playwright.kakao.config.ts"
+    "test:e2e:kakao": "playwright test -c playwright.kakao.config.ts",
+    "test:e2e:local": "playwright test -c playwright.local.config.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.8",

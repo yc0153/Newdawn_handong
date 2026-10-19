@@ -26,7 +26,7 @@ npm run dev:local        # http://localhost:3000  (Windows는 '로컬DB로실행
 - `supabase/migrations`의 SQL을 그대로 적용하므로 공개 조건·권한·멱등·버전 충돌이 Supabase와 같다. 새 마이그레이션은 다음 실행 때 자동으로 적용된다.
 - `.env.local`에 Supabase 값이 있어도 `dev:local`은 로컬 DB를 쓴다. `DATA_BACKEND`를 비워 두면 개발 서버(`npm run dev`)에서 Supabase 주소가 없을 때만 로컬 DB로 동작한다. 운영 빌드(`npm start`)는 직접 `DATA_BACKEND=local`을 적어야 한다.
 - 주소는 `http://localhost:3000`으로 연다(같은 출처 검사 기준). 같은 와이파이의 다른 기기에서 열려면 `.env.local`에 `APP_ORIGIN=http://<이 PC의 IP>:3000`을 적는다.
-- 한 번에 서버 하나만 같은 폴더를 열 수 있다(두 번째 서버는 `[로컬 DB] … 쓰고 있습니다` 안내 후 503). 창을 그냥 닫아 남은 잠금은 30초 뒤 자동으로 풀린다.
+- 한 번에 서버 하나만 같은 폴더를 열 수 있다(두 번째 서버는 `[로컬 DB] … 쓰고 있습니다` 안내 후 503). 창을 그냥 닫아 남은 잠금은 15초 뒤 자동으로 풀린다(그동안 화면에는 조회 실패가 잠깐 보일 수 있음).
 - 신뢰 IP 헤더가 없으므로 등록 빈도 제한(10분 5건, 하루 20건)을 이 PC의 모든 접속이 함께 쓴다.
 - 검수: `npm run test:local`.
 
@@ -61,6 +61,7 @@ npm run dev              # http://localhost:3000
 | 명령 | 필요한 것 |
 | --- | --- |
 | `npm run test:unit`, `npm run test:db`, `npm run test:local` | 없음 |
+| `npm run test:e2e:local` | 없음(검수용 타일 서버와 `dev:local` 서버를 알아서 띄움, 임시 DB 폴더 사용) |
 | `npm run test:integration` | 로컬 Supabase + 실행 중인 Next 서버. 서버와 테스트 모두 `TRUSTED_CLIENT_IP_HEADER=x-test-client-ip`로 실행(테스트마다 다른 클라이언트로 보이게 함) |
 | `npm run test:e2e:kakao` | 위 준비 + 가짜 카카오 SDK로 만든 두 번째 빌드(:3100). 명령은 `playwright.kakao.config.ts` 머리말 참고 |
 | `npm run test:e2e` | 위와 같음 + 검수용 타일 서버 `npm run tiles:test` + `.env.local`에 `NEXT_PUBLIC_MAP_TILE_URL=http://127.0.0.1:8099/{z}/{x}/{y}.svg`, `NEXT_PUBLIC_MAP_ATTRIBUTION=검수용 테스트 타일` 후 빌드 |
