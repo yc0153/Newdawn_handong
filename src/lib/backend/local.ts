@@ -2,6 +2,7 @@ import 'server-only';
 // 로컬 DB(PGlite) 구현. Supabase 구현과 같은 RPC·같은 권한 역할로 호출한다.
 import { HttpError } from '@/lib/api/http';
 import { mapDbError } from '@/lib/api/db-errors';
+import { toReviewPin } from '@/lib/api/admin-dto';
 import type { AdminAudit, PublicOpinion } from '@/lib/domain/types';
 import { asAuthServer, asRole, getLocalDb } from './local-db';
 import { verifyPassword } from './local-auth';
@@ -43,9 +44,9 @@ export const localPublicStore: PublicStore = {
   }),
   submitOpinion: (p: SubmitParams) => guard(async () => {
     const r = await asRole('service_role', null, (tx) => tx.query<{ result: SubmitReceipt }>(
-      'select public.submit_opinion($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) as result',
+      'select public.submit_opinion($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb) as result',
       [p.request_key, p.fingerprint, p.key_hash, p.grid_version, p.cell_x, p.cell_y, p.category, p.language,
-        p.original_text, p.allow_map, p.allow_player, p.notice_version]));
+        p.original_text, p.allow_map, p.allow_player, p.notice_version, p.review_pin ? JSON.stringify(p.review_pin) : null]));
     if (!r.rows[0]?.result) throw new HttpError(503, 'SERVICE_UNAVAILABLE');
     return r.rows[0].result;
   }),
@@ -84,9 +85,12 @@ export function localOperatorStore(userId: string): OperatorStore {
       if (!row.rows[0]) return null;
       const audit = await tx.query<Record<string, unknown>>(
         'select actor_id, action, version, created_at from public.admin_audit_logs where opinion_id = $1 order by created_at, id', [id]);
+      const pin = await tx.query<Record<string, unknown>>(
+        'select lat, lon, pano_id::text as pano_id, pin_pan, pin_tilt, view_pan, view_tilt, view_zoom from public.opinion_review_pins where opinion_id = $1', [id]);
       return {
         row: toRow(row.rows[0]),
         audit: audit.rows.map((a) => ({ ...(a as AdminAudit), created_at: iso(a.created_at) })),
+        review_pin: toReviewPin(pin.rows[0]),
       };
     })),
     action: (p) => guard(async () => {

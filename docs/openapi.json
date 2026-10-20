@@ -1206,6 +1206,10 @@
           "test_auto_publish": {
             "type": "boolean",
             "description": "Test mode: new map-consented opinions are published without staff review. False until the 2026-10-19 SQL is applied."
+          },
+          "review_pin": {
+            "type": "boolean",
+            "description": "True when the DB stores the staff-only review pin. False until the 2026-10-20 SQL is applied."
           }
         },
         "required": [
@@ -1269,8 +1273,19 @@
           "notice_version": {
             "type": "string",
             "enum": [
-              "2026-10-06-v1"
+              "2026-10-20-v2"
             ]
+          },
+          "review_pin": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ReviewPin"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional (2026-10-20). Sent only when PublicConfig.review_pin is true."
           }
         },
         "required": [
@@ -1521,6 +1536,17 @@
             "items": {
               "$ref": "#/components/schemas/Audit"
             }
+          },
+          "review_pin": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ReviewPin"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Staff-only exact pin; null when none was stored."
           }
         },
         "required": [
@@ -1537,7 +1563,8 @@
           "version",
           "created_at",
           "notice_version",
-          "audit_logs"
+          "audit_logs",
+          "review_pin"
         ]
       },
       "AdminPage": {
@@ -1669,6 +1696,77 @@
               "expected_version"
             ]
           }
+        ]
+      },
+      "ReviewRoadview": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Where the writer pinned in Kakao Roadview and the view they saw. No image is stored.",
+        "properties": {
+          "pano_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pin_pan": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMaximum": 360
+          },
+          "pin_tilt": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "view_pan": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMaximum": 360
+          },
+          "view_tilt": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "view_zoom": {
+            "type": "number",
+            "minimum": -3,
+            "maximum": 3
+          }
+        },
+        "required": [
+          "pano_id",
+          "pin_pan",
+          "pin_tilt",
+          "view_pan",
+          "view_tilt",
+          "view_zoom"
+        ]
+      },
+      "ReviewPin": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Staff-only exact pin. Must lie inside the submitted cell (INVALID_PIN otherwise). Never returned by public endpoints, lists or the overview; deleted with the opinion.",
+        "properties": {
+          "lat": {
+            "type": "number"
+          },
+          "lon": {
+            "type": "number"
+          },
+          "roadview": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ReviewRoadview"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "lat",
+          "lon"
         ]
       }
     },

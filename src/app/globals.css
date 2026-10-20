@@ -416,3 +416,18 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.65; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0s !important; animation-iteration-count: 1 !important; transition-duration: 0s !important; scroll-behavior: auto !important; }
 }
+
+/* 담당자 상세: 글쓴이가 꽂은 핀(지도·로드뷰) */
+.admin-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 8px 0 0; color: var(--muted); }
+.admin-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.admin-legend__pin { display: inline-block; width: 12px; height: 12px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--c-other); border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.18); }
+.admin-legend__pin--exact { background: var(--primary); }
+.admin-legend__pin--transport { background: var(--c-transport); }
+.admin-legend__pin--language { background: var(--c-language); }
+.admin-legend__pin--environment { background: var(--c-environment); }
+.admin-rv { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--surface, #fff); }
+.admin-rv__stage { position: relative; aspect-ratio: 16 / 9; background: #1b2a33; }
+.admin-rv__view { position: absolute; inset: 0; z-index: 0; }
+.admin-rv__msg { position: absolute; inset: 0; z-index: 1; margin: 0; display: grid; place-items: center; color: #fff; font-weight: 600; padding: 16px; text-align: center; }
+.admin-rv__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; padding: 8px 10px; border-top: 1px solid var(--line); }
+.admin-rv__actions { display: flex; gap: 6px; flex-wrap: wrap; }

@@ -11,7 +11,7 @@ import { CATEGORY_KEYS, CATEGORY_ORDER } from '@/lib/client/categories';
 import { clearReceipt, setReceipt } from '@/lib/client/receipt';
 import { cellKey, GRID_VERSION, quantize, representative } from '@/lib/domain/grid';
 import { textLengths } from '@/lib/domain/validation';
-import type { Category, Language, PublicConfig } from '@/lib/domain/types';
+import type { Category, Language, PublicConfig, ReviewPin, ReviewRoadview } from '@/lib/domain/types';
 import type { MessageKey } from '@/lib/i18n/messages';
 import { mapProvider } from '@/lib/map/provider';
 import { loadKakao, type Kakao } from '@/lib/map/kakao';
@@ -20,8 +20,9 @@ import { nearbyAddresses, searchAddresses, type AddressItem } from '@/lib/map/ka
 type Draft = { category: Category | ''; language: Language | ''; text: string; allowMap: boolean; allowPlayer: boolean };
 type FieldErrors = Partial<Record<'category' | 'language' | 'text' | 'location', MessageKey>>;
 type Cell = { cell_x: number; cell_y: number };
-// 카카오 지도일 때만: 주소 목록 → 로드뷰 → 핀 → 의견. 저장은 칸 번호만.
-type Place = { stage: 'list' } | { stage: 'view'; item: AddressItem } | { stage: 'pinned'; item: AddressItem } | { stage: 'skipped' };
+// 카카오 지도일 때만: 주소 목록 → 로드뷰 → 핀 → 의견. 공개는 칸 번호(약 200m)만.
+// pinned.rv: 로드뷰에 꽂은 핀 방향과 그때 시점(담당자 검토용, DB가 지원할 때만 보냄).
+type Place = { stage: 'list' } | { stage: 'view'; item: AddressItem } | { stage: 'pinned'; item: AddressItem; rv: ReviewRoadview | null } | { stage: 'skipped' };
 
 const EMPTY: Draft = { category: '', language: '', text: '', allowMap: false, allowPlayer: false };
 const TIMEOUT_MS = 10_000;
@@ -52,7 +53,8 @@ export default function SubmitFlow() {
   const [addrList, setAddrList] = useState<AddressList>({ status: 'ready', items: [] });
   const [query, setQuery] = useState('');
   const [focus, setFocus] = useState<{ lat: number; lon: number; zoom?: number; token: number } | null>(null);
-  // 화면에 핀을 꽂을 자리(누른 곳 또는 고른 주소). 이 브라우저 화면에만 쓰고 서버로 보내지 않는다.
+  // 핀을 꽂은 자리(누른 곳 또는 고른 주소). 화면 핀 표시와 주변 주소 찾기에 쓰고,
+  // DB가 담당자 검토용 핀을 지원하면(config.review_pin) 등록 때 함께 보낸다. 공개 경로에는 쓰이지 않는다.
   const [pickPoint, setPickPoint] = useState<{ lat: number; lon: number } | null>(null);
   const lookup = useRef(0);
 
@@ -90,6 +92,7 @@ export default function SubmitFlow() {
   const pickerOpen = open && cell !== null && !choosing && placeMode && !placeDone;
   const panelOpen = open && cell !== null && !choosing && placeDone;
   const placeItem = place && (place.stage === 'view' || place.stage === 'pinned') ? place.item : null;
+  const reviewPin = config.data?.review_pin === true;
   const areaRect = useMemo(() => {
     const cells = config.data?.allowed_cells ?? [];
     if (cells.length === 0) return undefined;
@@ -112,7 +115,8 @@ export default function SubmitFlow() {
     panelWasOpen.current = now;
   }, [panelOpen, pickerOpen, reducedMotion]);
 
-  // 지도 클릭·Enter: 서버에는 격자 번호만 보낸다. 원좌표는 화면의 핀 표시와 주변 주소 찾기에만 쓴다.
+  // 지도 클릭·Enter: 공개되는 위치는 격자 번호(약 200m)뿐이다. 누른 좌표는 화면 핀·주변 주소 찾기와
+  // (DB가 지원하면) 담당자 검토용 핀으로만 쓴다.
   const onPick = useCallback((lat: number, lon: number) => {
     if (!open || submitting || done) return;
     let picked: Cell;
@@ -210,6 +214,10 @@ export default function SubmitFlow() {
     const e = validate();
     setErrors(e);
     if (Object.values(e).some(Boolean)) { setSubmitError('panel.fixErrors'); focusFirst(e); return; }
+    // 담당자 검토용 정확한 핀: DB가 지원할 때만 보낸다. 좌표는 고른 칸 안이어야 한다(서버가 다시 확인).
+    const reviewPinBody: ReviewPin | null = reviewPin && pickPoint
+      ? { lat: pickPoint.lat, lon: pickPoint.lon, roadview: place?.stage === 'pinned' ? place.rv : null }
+      : null;
     const payload = JSON.stringify({
       grid_version: GRID_VERSION,
       cell_x: cell.cell_x,
@@ -220,6 +228,7 @@ export default function SubmitFlow() {
       allow_map: draft.allowMap,
       allow_player: draft.allowMap && draft.allowPlayer,
       notice_version: config.data.notice_version,
+      ...(reviewPinBody ? { review_pin: reviewPinBody } : {}),
     });
     // 같은 내용의 재시도는 같은 요청 키, 내용이 바뀌면 새 키.
     if (!attempt.current || attempt.current.payload !== payload) attempt.current = { key: crypto.randomUUID(), payload };
@@ -291,7 +300,7 @@ export default function SubmitFlow() {
               kakao={kakao}
               item={placeItem}
               pinned={place?.stage === 'pinned'}
-              onPin={() => setPlace({ stage: 'pinned', item: placeItem })}
+              onPin={(rv) => setPlace({ stage: 'pinned', item: placeItem, rv })}
               onBack={() => setPlace({ stage: 'list' })}
             />
           ) : null}
@@ -347,12 +356,13 @@ export default function SubmitFlow() {
             isAllowed={itemAllowed}
             selectedId={placeItem?.id ?? null}
             headingRef={headingRef}
+            reviewPin={reviewPin}
           />
         ) : null}
         {open && !panelOpen && !pickerOpen ? (
           <div className="panel-placeholder">
             <h2 id="panel-heading" tabIndex={-1} ref={headingRef}>{choosing ? t('submit.reselect') : t('submit.instruction')}</h2>
-            <p className="muted">{t('submit.privacyPlace')}</p>
+            <p className="muted">{t(reviewPin ? 'submit.privacyPlacePin' : 'submit.privacyPlace')}</p>
           </div>
         ) : null}
         {panelOpen ? (
@@ -362,12 +372,12 @@ export default function SubmitFlow() {
               <span className="location-box__icon" aria-hidden="true">⌖</span>
               <span className="location-box__text">
                 <strong>{placeItem ? (placeItem.name ?? placeItem.road ?? placeItem.jibun) : t('panel.location')}</strong>
-                <span className="muted">{placeItem ? t('place.savedNote') : t('panel.locationHelp')}</span>
+                <span className="muted">{reviewPin ? t(placeItem ? 'place.savedNotePin' : 'panel.locationHelpPin') : placeItem ? t('place.savedNote') : t('panel.locationHelp')}</span>
                 {errors.location ? <span className="field-error" role="alert">{t(errors.location)}</span> : null}
               </span>
               <button id="change-location" type="button" className="link-btn" onClick={() => { setChoosing(true); setPlace(null); setLocationNotice(null); }} disabled={submitting}>{t('panel.change')}</button>
             </div>
-            <p className="hint">{t('submit.privacyPlace')}</p>
+            <p className="hint">{t(reviewPin ? 'submit.privacyPlacePin' : 'submit.privacyPlace')}</p>
 
             <div className="field-row">
               <div className="field">

@@ -147,6 +147,11 @@
     this.layer = document.createElement('div');
     this.layer.style.cssText = 'position:absolute;inset:0;pointer-events:none';
     this.node.appendChild(this.layer);
+    for (const it of this.items) { this.layer.appendChild(it.el); it.draw(); }
+    // 실제 SDK처럼 처음 한 번 init, 지점이 바뀔 때마다 panoid_changed를 알린다.
+    const first = !this.inited;
+    this.inited = true;
+    setTimeout(() => { if (first) event.trigger(this, 'init'); event.trigger(this, 'panoid_changed'); }, 10);
   };
   Roadview.prototype.getPanoId = function () { return this.panoId; };
   Roadview.prototype.getViewpoint = function () { return new Viewpoint(this.vp.pan, this.vp.tilt, this.vp.zoom, this.panoId); };

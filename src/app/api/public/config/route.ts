@@ -18,6 +18,8 @@ export async function GET() {
       allowed_cells: (raw.allowed_cells ?? []).map((c) => ({ cell_x: c.cell_x, cell_y: c.cell_y })),
       // 테스트 모드(검토 없이 바로 공개). 새 SQL을 적용하기 전 DB에는 값이 없으므로 꺼짐으로 본다.
       test_auto_publish: raw.test_auto_publish === true,
+      // 정확한 핀 저장(담당자 검토용). 새 SQL 적용 전 DB는 값이 없으므로 보내지 않게 false.
+      review_pin: raw.review_pin === true,
     };
     logRequest('public/config', 200, started);
     return json(body);

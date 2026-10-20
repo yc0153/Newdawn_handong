@@ -1,5 +1,5 @@
 // 카카오 지도 모드: 지도 클릭 → 주변 상세주소 → 검색 → 로드뷰 → 핀 → 의견 등록.
-// 가짜 SDK(tests/e2e/kakao-mock.js)를 쓰며, 서버에는 칸 번호만 간다는 것을 확인한다.
+// 가짜 SDK(tests/e2e/kakao-mock.js)를 쓴다. 공개용 위치는 칸 번호뿐이고, 담당자 검토용 핀(좌표·로드뷰 방향)만 따로 간다.
 import { test as base, expect, type Page, type Request } from '@playwright/test';
 
 const test = base.extend({
@@ -96,10 +96,81 @@ test('K01: map click lists nearby addresses; search, roadview pin and submit sen
   await page.getByRole('button', { name: /의견 등록/ }).click();
   await expect(page).toHaveURL(/\/submit\/complete$/);
   const body = JSON.parse((sent as Request | null)!.postData()!);
-  expect(Object.keys(body).sort()).toEqual(['allow_map', 'allow_player', 'category', 'cell_x', 'cell_y', 'grid_version', 'language', 'notice_version', 'original_text']);
-  // 검수빌딩은 칸 (40, 44)의 대표점
+  expect(Object.keys(body).sort()).toEqual(['allow_map', 'allow_player', 'category', 'cell_x', 'cell_y', 'grid_version', 'language', 'notice_version', 'original_text', 'review_pin']);
+  // 검수빌딩은 칸 (40, 44)의 대표점. 공개용 위치는 칸 번호뿐이다.
   expect([body.cell_x, body.cell_y]).toEqual([40, 44]);
-  expect(JSON.stringify(body)).not.toMatch(/검수빌딩|검수로|lat|lon/);
+  // 담당자 검토용 핀: 고른 장소 좌표(같은 칸 안) + 로드뷰 핀 방향·시점. 주소 글자는 보내지 않는다.
+  expect(Object.keys(body.review_pin).sort()).toEqual(['lat', 'lon', 'roadview']);
+  expect(Object.keys(body.review_pin.roadview).sort()).toEqual(['pano_id', 'pin_pan', 'pin_tilt', 'view_pan', 'view_tilt', 'view_zoom']);
+  expect(body.review_pin.roadview.pano_id).toBe(4242);
+  expect(JSON.stringify(body)).not.toMatch(/검수빌딩|검수로|검수동|"(zip|address|road|jibun|name)"/);
+});
+
+test('K06: the operator detail shows the writer\'s map pin and the roadview pin in the same scene', async ({ page }) => {
+  await page.goto('/submit');
+  await expect(page.locator('.kakao-host')).toBeVisible();
+  await clickMapCenter(page);
+  await page.fill('#place-q', '시청');
+  await page.getByRole('button', { name: '검색' }).click();
+  await page.locator('.addr-item', { hasText: '검수빌딩' }).click();
+  await expect(page.locator('.kmock-roadview')).toContainText('ROADVIEW 4242');
+  const view = (await page.locator('.roadview__view').boundingBox())!;
+  await page.getByRole('button', { name: /핀 꽂기/ }).click();
+  const at = { fx: 0.3, fy: 0.62 };
+  await page.mouse.click(view.x + view.width * at.fx, view.y + view.height * at.fy);
+  await expect(page.locator('.roadview__droppin')).toHaveCount(1);
+  await page.getByRole('button', { name: /이 핀 위치로 의견 쓰기/ }).click();
+  await expect(page.locator('.location-box')).toContainText('담당자만');
+  // 의견을 쓰는 중에 로드뷰 핀을 옮겨도 옮긴 핀이 저장된다.
+  const first = { ...at };
+  await page.getByRole('button', { name: /핀 옮기기/ }).click();
+  at.fx = 0.62; at.fy = 0.41;
+  await page.mouse.click(view.x + view.width * at.fx, view.y + view.height * at.fy);
+  await expect(page.locator('.roadview__catch')).toHaveCount(0);
+  expect(at).not.toEqual(first);
+  const text = `[E2E 카카오] 담당자 핀 확인 ${Date.now()}`;
+  await page.selectOption('#f-category', 'environment');
+  await page.selectOption('#f-language', 'ko');
+  await page.fill('#f-text', text);
+  await page.getByRole('button', { name: /의견 등록/ }).click();
+  await expect(page).toHaveURL(/\/submit\/complete$/);
+
+  // 담당자 로그인(이 검수 서버 전용 로컬 계정) → 상세
+  await page.goto('/admin/login');
+  await page.fill('#a-email', process.env.E2E_KAKAO_ADMIN_EMAIL ?? 'admin@local.test');
+  await page.fill('#a-password', process.env.E2E_KAKAO_ADMIN_PASSWORD ?? 'kakao-e2e-local-only');
+  await page.getByRole('button', { name: '로그인' }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+  const list = await (await page.request.get('/api/admin/opinions?status=pending')).json() as { data: { id: string; original_text: string }[] };
+  const id = list.data.find((o) => o.original_text === text)!.id;
+  // 목록 응답에는 정확한 핀이 없다
+  expect(JSON.stringify(list)).not.toMatch(/review_pin|pano_id/);
+  await page.goto(`/admin/opinions/${id}`);
+  await expect(page.getByText('지도 핀 + 로드뷰 핀')).toBeVisible();
+  // 지도: 글쓴이가 꽂은 핀 + 공개되는 대략 위치(원)
+  await expect(page.locator('.admin-map .pick-pin')).toHaveCount(1);
+  await expect(page.locator('.admin-map .kmock-circle')).toHaveCount(1);
+  // 로드뷰: 같은 지점(4242)·같은 시점으로 열리고 핀이 같은 자리(화면 비율 기준)에 보인다
+  const rv = page.locator('.admin-rv');
+  await expect(rv.locator('.kmock-roadview')).toContainText('ROADVIEW 4242');
+  const pin = rv.locator('.roadview__droppin');
+  await expect(pin).toBeVisible();
+  const box = (await rv.locator('.admin-rv__view').boundingBox())!;
+  await expect.poll(async () => {
+    const b = (await pin.boundingBox())!;
+    return Math.round(Math.hypot((b.x + b.width / 2 - box.x) / box.width - at.fx, (b.y + b.height - box.y) / box.height - at.fy) * 1000);
+  }).toBeLessThanOrEqual(20);
+  // 핀 쪽으로 보기: 핀이 가운데로 온다
+  await rv.getByRole('button', { name: '핀 쪽으로 보기' }).click();
+  await expect.poll(async () => {
+    const b = (await pin.boundingBox())!;
+    return Math.round(Math.abs((b.x + b.width / 2 - box.x) / box.width - 0.5) * 1000);
+  }).toBeLessThanOrEqual(20);
+  await rv.getByRole('button', { name: '처음 화면으로' }).click();
+  await expect.poll(async () => {
+    const b = (await pin.boundingBox())!;
+    return Math.round(Math.abs((b.x + b.width / 2 - box.x) / box.width - at.fx) * 1000);
+  }).toBeLessThanOrEqual(20);
 });
 
 test('K02: skipping the address keeps the map place', async ({ page }) => {

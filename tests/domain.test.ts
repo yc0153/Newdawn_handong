@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { quantize,representative } from '../src/lib/domain/grid';
-import { validateSubmission,textLengths,validSummary } from '../src/lib/domain/validation';
+import { validateSubmission,textLengths,validSummary,NOTICE_VERSION } from '../src/lib/domain/validation';
 import { canDisplayCases,nextIndex } from '../src/lib/domain/freshness';
-const base={...quantize(36.04,129.39),category:'transport',language:'ko',original_text:'가나다라마바사아자차',allow_map:false,allow_player:false,notice_version:'2026-10-06-v1'};
+const base={...quantize(36.04,129.39),category:'transport',language:'ko',original_text:'가나다라마바사아자차',allow_map:false,allow_player:false,notice_version:NOTICE_VERSION};
 test('minimum excludes Unicode whitespace and maximum includes it',()=>{
   assert.equal(validateSubmission(base).original_text,base.original_text);
   assert.throws(()=>validateSubmission({...base,original_text:'123456789\u00a0\t\n'}),/TEXT_TOO_SHORT/);
@@ -19,6 +19,25 @@ test('reject invalid consent, precise coordinates, absent and fabricated fields'
   assert.throws(()=>validateSubmission({...base,cell_x:NaN}),/INVALID_CELL/);
   assert.throws(()=>validateSubmission({...base,category:'anything'}),/INVALID_CATEGORY/);
   assert.throws(()=>validateSubmission({...base,notice_version:'wrong'}),/INVALID_NOTICE/);
+});
+test('review pin (staff-only exact pin): must sit inside the submitted cell, strict shape, optional',()=>{
+  const c=representative(base);
+  const rv={pano_id:1187902201,pin_pan:-30,pin_tilt:12.34567,view_pan:725.5,view_tilt:-3,view_zoom:1};
+  const ok=validateSubmission({...base,review_pin:{lat:c.lat+0.0003,lon:c.lon-0.0004,roadview:rv}});
+  assert.deepEqual(ok.review_pin,{lat:c.lat+0.0003,lon:c.lon-0.0004,roadview:{pano_id:1187902201,pin_pan:330,pin_tilt:12.346,view_pan:5.5,view_tilt:-3,view_zoom:1}});
+  assert.deepEqual(validateSubmission({...base,review_pin:{lat:c.lat,lon:c.lon}}).review_pin,{lat:c.lat,lon:c.lon,roadview:null});
+  // 핀이 없으면 키 자체가 없다(예전 등록과 같은 중복 판별 값).
+  assert.ok(!('review_pin' in validateSubmission(base)));
+  assert.ok(!('review_pin' in validateSubmission({...base,review_pin:null})));
+  // 다른 칸의 좌표(약 200m 밖)는 거절
+  assert.throws(()=>validateSubmission({...base,review_pin:{lat:c.lat+0.002,lon:c.lon}}),/INVALID_PIN/);
+  assert.throws(()=>validateSubmission({...base,review_pin:{lat:c.lat,lon:c.lon,extra:1}}),/INVALID_PIN/);
+  assert.throws(()=>validateSubmission({...base,review_pin:{lat:'36',lon:c.lon}}),/INVALID_PIN/);
+  assert.throws(()=>validateSubmission({...base,review_pin:[c.lat,c.lon]}),/INVALID_PIN/);
+  assert.throws(()=>validateSubmission({...base,review_pin:{lat:c.lat,lon:c.lon,roadview:{...rv,pano_id:1.5}}}),/INVALID_PIN/);
+  assert.throws(()=>validateSubmission({...base,review_pin:{lat:c.lat,lon:c.lon,roadview:{...rv,pin_tilt:91}}}),/INVALID_PIN/);
+  assert.throws(()=>validateSubmission({...base,review_pin:{lat:c.lat,lon:c.lon,roadview:{...rv,address:'x'}}}),/INVALID_PIN/);
+  assert.throws(()=>validateSubmission({...base,review_pin:{lat:c.lat,lon:c.lon,roadview:{pano_id:1}}}),/INVALID_PIN/);
 });
 test('grid representative round-trip and approximate 200m spacing',()=>{
   for(const cell_x of [-5,0,10,40])for(const cell_y of [-4,0,15,30]){

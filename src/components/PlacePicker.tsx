@@ -15,6 +15,8 @@ export default function PlacePicker(props: {
   isAllowed: (item: AddressItem) => boolean;
   selectedId?: string | null;
   headingRef?: React.Ref<HTMLHeadingElement>;
+  /** DB가 담당자 검토용 정확한 핀을 저장하면 안내 문구를 바꾼다. */
+  reviewPin?: boolean;
 }) {
   const { t } = useI18n();
   const { list } = props;
@@ -54,7 +56,7 @@ export default function PlacePicker(props: {
         </ul>
       ) : null}
       <button type="button" className="link-btn place-skip" onClick={props.onSkip}>{t('place.skip')}</button>
-      <p className="hint">{t('place.savedNote')}</p>
+      <p className="hint">{t(props.reviewPin ? 'place.savedNotePin' : 'place.savedNote')}</p>
     </div>
   );
 }

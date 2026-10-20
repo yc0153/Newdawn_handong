@@ -1,4 +1,4 @@
-import type { AdminAudit, AdminOpinion } from '@/lib/domain/types';
+import type { AdminAudit, AdminOpinion, ReviewPin } from '@/lib/domain/types';
 
 // 관리자 화면에 필요한 열만 고른다. 요청 키·지문·빈도 제한 키는 관리자에게도 보내지 않는다.
 export const ADMIN_COLUMNS =
@@ -21,6 +21,19 @@ export function toAdminOpinion(r: AdminRowInput): AdminOpinion {
     version: r.version,
     created_at: r.created_at,
   };
+}
+
+/** 담당자 검토용 핀 표의 열. 상세 화면에서만 읽는다. */
+export const REVIEW_PIN_COLUMNS = 'lat,lon,pano_id,pin_pan,pin_tilt,view_pan,view_tilt,view_zoom';
+
+/** DB 행 → 핀. 로드뷰 값이 하나라도 없으면 지도 핀만 돌려준다. bigint는 문자열로 올 수 있어 숫자로 바꾼다. */
+export function toReviewPin(r: Record<string, unknown> | null | undefined): ReviewPin | null {
+  if (!r) return null;
+  const n = (v: unknown) => (v === null || v === undefined || v === '' ? NaN : Number(v));
+  const lat = n(r.lat), lon = n(r.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const rv = { pano_id: n(r.pano_id), pin_pan: n(r.pin_pan), pin_tilt: n(r.pin_tilt), view_pan: n(r.view_pan), view_tilt: n(r.view_tilt), view_zoom: n(r.view_zoom) };
+  return { lat, lon, roadview: Object.values(rv).every(Number.isFinite) ? rv : null };
 }
 
 export function toAudit(r: AdminAudit): AdminAudit {

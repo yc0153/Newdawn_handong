@@ -14,7 +14,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!found) throw new HttpError(404, 'NOT_FOUND');
     const r = found.row;
     logRequest('admin/opinion', 200, started);
-    return json({ ...toAdminOpinion(r as AdminRowInput), notice_version: r.notice_version, audit_logs: found.audit.map(toAudit) });
+    // 정확한 핀은 담당자 상세에서만 내보낸다(목록·현황·공개 경로에는 없음).
+    return json({ ...toAdminOpinion(r as AdminRowInput), notice_version: r.notice_version, audit_logs: found.audit.map(toAudit), review_pin: found.review_pin });
   } catch (e) {
     const res = fromHttpError(e);
     logRequest('admin/opinion', res.status, started, e instanceof HttpError ? e.code : 'UNEXPECTED');

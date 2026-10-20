@@ -3,7 +3,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import MapView from '@/components/map/MapView';
+import AdminRoadview from './AdminRoadview';
 import type { AdminDetail as Detail } from '@/lib/domain/types';
+import { loadKakao, type Kakao } from '@/lib/map/kakao';
 import { textLengths, validSummary } from '@/lib/domain/validation';
 import { mapProvider } from '@/lib/map/provider';
 import { ACTION_LABEL, CATEGORY_LABEL, LANGUAGE_LABEL, STATUS_LABEL, formatDate } from './labels';
@@ -22,6 +24,16 @@ export default function AdminDetail({ id, selfId }: { id: string; selfId: string
   const [message, setMessage] = useState<{ kind: 'ok' | 'error' | 'conflict'; text: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleted, setDeleted] = useState(false);
+  const [kakao, setKakao] = useState<Kakao | null>(null);
+  const [kakaoFailed, setKakaoFailed] = useState(false);
+
+  // 로드뷰 핀을 보여 주려면 카카오 SDK가 필요하다(키가 없으면 지도 핀만).
+  useEffect(() => {
+    if (provider?.kind !== 'kakao') return;
+    let cancelled = false;
+    loadKakao(provider.appKey, provider.sdkUrl).then((k) => { if (!cancelled) setKakao(k); }).catch(() => { if (!cancelled) setKakaoFailed(true); });
+    return () => { cancelled = true; };
+  }, [provider]);
 
   const load = useCallback(async (keepDraft: boolean) => {
     try {
@@ -115,7 +127,10 @@ export default function AdminDetail({ id, selfId }: { id: string; selfId: string
   const canPublish = d.allow_map && d.status !== 'published' && (dirty ? summaryValid : !!d.summary);
   const saveFirst: ActionBody[] = dirty ? [{ action: 'save_summary', summary }] : [];
   const canPlayer = d.allow_map && d.allow_player;
-  const group = [{ key: d.id, lat: d.location.lat, lon: d.location.lon, count: 1, category: d.category, active: true, label: '대략 위치' }];
+  const group = [{ key: d.id, lat: d.location.lat, lon: d.location.lon, count: 1, category: d.category, active: true, label: '공개되는 대략 위치' }];
+  const pin = d.review_pin;
+  const exactTag = pin ? { lat: pin.lat, lon: pin.lon, label: '글쓴이가 꽂은 핀' } : null;
+  const mapFocus = pin ? { lat: pin.lat, lon: pin.lon, zoom: 16, token: 1 } : { lat: d.location.lat, lon: d.location.lon, zoom: 15, token: 1 };
 
   return (
     <div className="admin-detail">
@@ -148,10 +163,24 @@ export default function AdminDetail({ id, selfId }: { id: string; selfId: string
             <div><dt>작성자 플레이어 공개 선택</dt><dd>{d.allow_player ? '예' : '아니오'}</dd></div>
             <div><dt>상영 포함</dt><dd>{d.include_in_player ? '예' : '아니오'}</dd></div>
             <div><dt>공개 안내 버전</dt><dd>{d.notice_version}</dd></div>
-            <div><dt>대략 위치</dt><dd>{d.location.lat.toFixed(5)}, {d.location.lon.toFixed(5)} (약 200m 격자 대표점)</dd></div>
+            <div><dt>대략 위치 (공개)</dt><dd>{d.location.lat.toFixed(5)}, {d.location.lon.toFixed(5)} (약 200m 격자 대표점)</dd></div>
+            <div><dt>꽂은 핀 (담당자만)</dt><dd>{pin ? (pin.roadview ? '지도 핀 + 로드뷰 핀' : '지도 핀') : '저장 안 됨'}</dd></div>
           </dl>
           <p className="muted small">작성자의 공개 선택은 담당자가 바꿀 수 없습니다. 민감한 내용이 있으면 위치를 흐리는 것으로 공개하지 말고 숨김 상태로 두세요.</p>
-          <div className="admin-map"><MapView provider={provider} ariaLabel="의견의 대략 위치" groups={group} focus={{ lat: d.location.lat, lon: d.location.lon, zoom: 15, token: 1 }} compact /></div>
+          <h2 className="small-heading">지도에 꽂은 핀</h2>
+          <div className="admin-map"><MapView provider={provider} ariaLabel="글쓴이가 꽂은 핀과 공개되는 대략 위치" groups={group} tag={exactTag} focus={mapFocus} compact /></div>
+          <p className="admin-legend small">
+            {pin ? <span><span className="admin-legend__pin admin-legend__pin--exact" aria-hidden="true" /> 글쓴이가 꽂은 핀 (담당자만 봄)</span> : null}
+            <span><span className={`admin-legend__pin admin-legend__pin--${d.category}`} aria-hidden="true" /> 공개되는 대략 위치 (원: 약 200m 범위)</span>
+          </p>
+          {!pin ? <p className="muted small">정확한 핀이 저장되지 않은 의견입니다(핀 저장 기능을 넣기 전에 등록했거나, 그때 DB가 아직 지원하지 않았음). 대략 위치만 볼 수 있습니다.</p> : null}
+
+          <h2 className="small-heading">로드뷰에 꽂은 핀</h2>
+          {!pin ? <p className="muted small">저장된 로드뷰 핀이 없습니다.</p>
+            : !pin.roadview ? <p className="muted small">글쓴이가 로드뷰에서 핀을 꽂지 않았습니다(근처에 로드뷰가 없거나 주소 없이 지도 위치로 진행).</p>
+            : provider?.kind !== 'kakao' || kakaoFailed ? <p className="muted small">로드뷰 핀은 카카오 지도를 불러올 수 있는 화면(카카오 지도 키 설정)에서 볼 수 있습니다.</p>
+            : !kakao ? <p className="muted small" aria-busy="true">로드뷰를 준비하는 중…</p>
+            : <AdminRoadview kakao={kakao} lat={pin.lat} lon={pin.lon} rv={pin.roadview} />}
         </section>
 
         <section className="card">

@@ -5,6 +5,7 @@ const MAP: Record<string, [number, string?]> = {
   SUBMISSIONS_DISABLED: [503],
   INVALID_GRID: [422, 'location'],
   OUTSIDE_AREA: [422, 'location'],
+  INVALID_PIN: [422, 'location'],
   INVALID_NOTICE: [422, 'notice_version'],
   TEXT_TOO_SHORT: [422, 'original_text'],
   TEXT_TOO_LONG: [422, 'original_text'],

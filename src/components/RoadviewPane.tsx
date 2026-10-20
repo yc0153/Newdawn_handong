@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from './I18nProvider';
 import type { Kakao } from '@/lib/map/kakao';
 import type { AddressItem } from '@/lib/map/kakaoPlaces';
+import type { ReviewRoadview } from '@/lib/domain/types';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Dir = { pan: number; tilt: number };
@@ -12,19 +13,25 @@ const wait = () => new Promise<void>((r) => requestAnimationFrame(() => requestA
 /**
  * 고른 주소의 카카오 로드뷰. 로드뷰에서 원하는 곳을 누르면 그 방향에 핀이 꽂힌다(다시 누르면 옮겨짐).
  * 카카오 로드뷰는 화면 좌표 → 방향 변환을 주지 않으므로, 보이지 않는 시험 오버레이로
- * 각도당 화면 이동량을 그 자리에서 재며 누른 곳의 방향(pan, tilt)을 찾는다. 핀 방향은 저장하지 않는다.
+ * 각도당 화면 이동량을 그 자리에서 재며 누른 곳의 방향(pan, tilt)을 찾는다.
+ * 핀을 꽂은 방향과 그때의 로드뷰 시점은 onPin으로 넘긴다(담당자 검토용, 사진은 저장하지 않음).
  */
 export default function RoadviewPane(props: {
   kakao: Kakao;
   item: AddressItem;
   pinned: boolean;
-  onPin: () => void;
+  /** 로드뷰 핀(방향·그때 시점)을 넘긴다. 로드뷰가 없거나 핀을 안 꽂았으면 null. */
+  onPin: (snap: ReviewRoadview | null) => void;
   onBack: () => void;
 }) {
   const { t } = useI18n();
   const el = useRef<HTMLDivElement>(null);
   const rvRef = useRef<any>(null);
   const pinOverlay = useRef<any>(null);
+  const snap = useRef<ReviewRoadview | null>(null);
+  // 이미 '이 핀 위치로'를 누른 뒤 핀을 옮기면 바뀐 핀을 바로 다시 넘긴다.
+  const after = useRef<{ pinned: boolean; onPin: (s: ReviewRoadview | null) => void }>({ pinned: props.pinned, onPin: props.onPin });
+  useEffect(() => { after.current = { pinned: props.pinned, onPin: props.onPin }; }, [props.pinned, props.onPin]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'none'>('loading');
   const [hasPin, setHasPin] = useState(false);
   // 카카오 로드뷰는 바닥을 누르면 다음 지점으로 이동하므로, 핀 꽂기 중에는 투명 막이 클릭을 대신 받는다.
@@ -39,6 +46,7 @@ export default function RoadviewPane(props: {
     setStatus('loading');
     setHasPin(false);
     setPicking(false);
+    snap.current = null;
     const rv = new kakao.maps.Roadview(node);
     rvRef.current = rv;
     const client = new kakao.maps.RoadviewClient();
@@ -151,7 +159,14 @@ export default function RoadviewPane(props: {
       dir = { pan: dir.pan + (J.d * dx - J.b * dy) / J.det, tilt: clampTilt(dir.tilt + (-J.c * dx + J.a * dy) / J.det) };
     }
     if (!overlay.getMap?.()) overlay.setMap(rv);
+    // 핀이 놓인 방향(good)과 핀을 꽂을 때 보던 시점. 담당자 화면에서 같은 장면을 다시 연다.
+    const norm = (p: number) => ((p % 360) + 360) % 360;
+    const pano = Number(rv.getPanoId());
+    snap.current = Number.isSafeInteger(pano) && pano > 0
+      ? { pano_id: pano, pin_pan: norm(good.pan), pin_tilt: good.tilt, view_pan: norm(vp.pan), view_tilt: vp.tilt, view_zoom: vp.zoom ?? 0 }
+      : null;
     setHasPin(true);
+    if (after.current.pinned) after.current.onPin(snap.current);
   }, [kakao, placeAt]);
 
   const onCatch = async (e: React.PointerEvent<HTMLDivElement>) => {
@@ -192,13 +207,13 @@ export default function RoadviewPane(props: {
                 </button>
               )}
               {!props.pinned ? (
-                <button type="button" className="btn btn--primary" onClick={props.onPin} disabled={!hasPin || picking}>{t('rv.pin')} <span aria-hidden="true">→</span></button>
+                <button type="button" className="btn btn--primary" onClick={() => props.onPin(snap.current)} disabled={!hasPin || picking}>{t('rv.pin')} <span aria-hidden="true">→</span></button>
               ) : null}
             </span>
           </>
         ) : null}
         {status === 'none' && !props.pinned ? (
-          <button type="button" className="btn btn--primary" onClick={props.onPin}>{t('rv.continueNoView')} <span aria-hidden="true">→</span></button>
+          <button type="button" className="btn btn--primary" onClick={() => props.onPin(null)}>{t('rv.continueNoView')} <span aria-hidden="true">→</span></button>
         ) : null}
         {status === 'none' && props.pinned ? <span className="roadview__ok" role="status">{t('rv.pinned')}</span> : null}
       </div>

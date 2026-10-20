@@ -1,7 +1,7 @@
 // 저장소 경계. Supabase와 로컬 DB(PGlite)가 같은 모양으로 구현한다.
 // 실패는 HttpError(안전한 코드)로 던진다. SQL·원문은 오류에 넣지 않는다.
 import type { RateEnv } from '@/lib/api/submission';
-import type { AdminAudit, PublicConfig, PublicOpinion } from '@/lib/domain/types';
+import type { AdminAudit, PublicConfig, PublicOpinion, ReviewPin } from '@/lib/domain/types';
 
 export type SubmitParams = {
   request_key: string;
@@ -16,12 +16,14 @@ export type SubmitParams = {
   allow_map: boolean;
   allow_player: boolean;
   notice_version: string;
+  /** 담당자 검토용 정확한 핀(없으면 null). DB가 지원하지 않으면 저장하지 않고 등록만 한다. */
+  review_pin: ReviewPin | null;
 };
 
 /** published는 테스트 모드 자동 공개가 켜진 DB에서만 true가 될 수 있다. */
 export type SubmitReceipt = { reference: string; created: boolean; published?: boolean };
 
-export type RawConfig = Partial<PublicConfig> & { test_auto_publish?: boolean; test_auto_publish_until?: string | null };
+export type RawConfig = Partial<PublicConfig> & { test_auto_publish?: boolean; test_auto_publish_until?: string | null; review_pin?: boolean };
 
 export interface PublicStore {
   readPublicOpinions(mode: 'browse' | 'player'): Promise<PublicOpinion[]>;
@@ -69,7 +71,8 @@ export const OVERVIEW_ROW_LIMIT = 1000;
 export interface OperatorStore {
   userId: string;
   listOpinions(q: { status: string; page: number; pageSize: number }): Promise<{ rows: AdminRow[]; total: number }>;
-  getOpinion(id: string): Promise<{ row: AdminRow; audit: AdminAudit[] } | null>;
+  /** review_pin은 담당자 상세에서만 돌려준다(목록·현황에는 넣지 않음). */
+  getOpinion(id: string): Promise<{ row: AdminRow; audit: AdminAudit[]; review_pin: ReviewPin | null } | null>;
   action(p: AdminActionParams): Promise<AdminActionResult>;
   overview(): Promise<AdminOverviewData>;
   /** 켜면 hours시간 뒤 저절로 꺼진다. */

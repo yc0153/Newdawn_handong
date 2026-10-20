@@ -6,8 +6,8 @@ import { cellBounds, quantize, representative } from '../src/lib/domain/grid';
 import { readJsonObject, HttpError, assertSameOrigin } from '../src/lib/api/http';
 import { fingerprint, rateKeyHash, serverReadyForSubmissions } from '../src/lib/api/submission';
 import { mapDbError } from '../src/lib/api/db-errors';
-import { parseAdminAction, AdminInputError } from '../src/lib/api/admin-dto';
-import { validateSubmission } from '../src/lib/domain/validation';
+import { parseAdminAction, AdminInputError, toReviewPin } from '../src/lib/api/admin-dto';
+import { NOTICE_VERSION, validateSubmission } from '../src/lib/domain/validation';
 
 const ids = ['a', 'b', 'c'];
 const run = (s: PlayerState, ...actions: Parameters<typeof playerReducer>[1][]) => actions.reduce(playerReducer, s);
@@ -129,7 +129,7 @@ test('http: 8KB limit, JSON object only, content type, same origin', async () =>
 });
 
 test('fingerprint is order independent and changes with content; rate key needs trusted config', () => {
-  const base = validateSubmission({ grid_version: 'pohang-v1', cell_x: 1, cell_y: 2, category: 'other', language: 'en', original_text: 'Ten chars here', allow_map: false, allow_player: false, notice_version: '2026-10-06-v1' });
+  const base = validateSubmission({ grid_version: 'pohang-v1', cell_x: 1, cell_y: 2, category: 'other', language: 'en', original_text: 'Ten chars here', allow_map: false, allow_player: false, notice_version: NOTICE_VERSION });
   const reordered = Object.fromEntries(Object.entries(base).reverse()) as typeof base;
   assert.equal(fingerprint(base), fingerprint(reordered));
   assert.notEqual(fingerprint(base), fingerprint({ ...base, allow_map: true }));
@@ -176,4 +176,18 @@ test('grid: allowed cells merge into covering rectangles without gaps or extras'
   for (const r of rects) for (let x = r.x0; x <= r.x1; x++) for (let y = r.y0; y <= r.y1; y++) covered.add(`${x}:${y}`);
   assert.deepEqual([...covered].sort(), cells.map((c) => `${c.cell_x}:${c.cell_y}`).sort());
   assert.equal(rects.length, 2);
+});
+
+test('review pin: part of the idempotency fingerprint, safe DB error, DB row conversion', () => {
+  const c = representative({ grid_version: 'pohang-v1', cell_x: 41, cell_y: 28 });
+  const body = { grid_version: 'pohang-v1', cell_x: 41, cell_y: 28, category: 'other', language: 'en', original_text: 'Ten chars here', allow_map: false, allow_player: false, notice_version: NOTICE_VERSION };
+  const plain = validateSubmission(body);
+  const pinned = validateSubmission({ ...body, review_pin: { lat: c.lat, lon: c.lon } });
+  assert.notEqual(fingerprint(plain), fingerprint(pinned), 'same key with a different pin is a different request');
+  assert.equal(fingerprint(plain), fingerprint(validateSubmission({ ...body, review_pin: null })));
+  assert.deepEqual({ ...mapDbError({ message: 'INVALID_PIN' }) }, { ...new HttpError(422, 'INVALID_PIN', 'location') });
+  assert.deepEqual(toReviewPin({ lat: 36.1, lon: 129.3, pano_id: '1187902201', pin_pan: 10, pin_tilt: 2, view_pan: 5, view_tilt: 0, view_zoom: 0 }),
+    { lat: 36.1, lon: 129.3, roadview: { pano_id: 1187902201, pin_pan: 10, pin_tilt: 2, view_pan: 5, view_tilt: 0, view_zoom: 0 } });
+  assert.deepEqual(toReviewPin({ lat: 36.1, lon: 129.3, pano_id: null, pin_pan: null, pin_tilt: null, view_pan: null, view_tilt: null, view_zoom: null }), { lat: 36.1, lon: 129.3, roadview: null });
+  assert.equal(toReviewPin(undefined), null);
 });

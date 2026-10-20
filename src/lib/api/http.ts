@@ -31,6 +31,7 @@ const MESSAGES: Record<string, string> = {
   INVALID_GRID: '위치 정보가 올바르지 않습니다.',
   INVALID_CELL: '위치 정보가 올바르지 않습니다.',
   OUTSIDE_AREA: '의견을 받을 수 있는 영역 밖입니다.',
+  INVALID_PIN: '핀 위치 정보가 올바르지 않습니다. 위치를 다시 골라 주세요.',
   INVALID_CATEGORY: '분야를 선택해 주세요.',
   INVALID_LANGUAGE: '작성 언어를 선택해 주세요.',
   INVALID_TEXT: '의견을 입력해 주세요.',

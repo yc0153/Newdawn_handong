@@ -27,11 +27,11 @@ query `mode=browse|player`, 기본 browse. SQL의 공개 조건을 매 요청 �
 
 ## GET /api/public/config
 
-한·영 작성 안내 버전, grid_version, 허용 cell_x/y 목록, submissions_enabled, test_auto_publish(테스트 모드, 2026-10-19 SQL 적용 전 DB는 false)를 반환한다. 비밀정보·원문은 없다. 격자 계산 상수는 grid_version과 함께 클라이언트 코드에 둔다. 허용 셀은 서버 목록과 일치해야 하며 빈 목록이면 위치 선택·등록을 운영 가능으로 표시하지 않는다. 원문에는 config API가 없으며 이는 서버 허용 지역을 클라이언트와 공유하기 위한 구현 선택이다.
+한·영 작성 안내 버전, grid_version, 허용 cell_x/y 목록, submissions_enabled, test_auto_publish(테스트 모드, 2026-10-19 SQL 적용 전 DB는 false), review_pin(담당자 검토용 정확한 핀 저장 가능 여부, 2026-10-20 SQL 적용 전 DB는 false)을 반환한다. 브라우저는 review_pin이 true일 때만 아래 `review_pin` 필드를 보낸다. 비밀정보·원문은 없다. 격자 계산 상수는 grid_version과 함께 클라이언트 코드에 둔다. 허용 셀은 서버 목록과 일치해야 하며 빈 목록이면 위치 선택·등록을 운영 가능으로 표시하지 않는다. 원문에는 config API가 없으며 이는 서버 허용 지역을 클라이언트와 공유하기 위한 구현 선택이다.
 
 ## POST /api/opinions
 
-header `Idempotency-Key: UUID`. 서버는 JSON 최대 8KB를 검사한다. 원좌표·위도·경도는 허용 필드가 아니다.
+header `Idempotency-Key: UUID`. 서버는 JSON 최대 8KB를 검사한다. 맨 위 단계의 원좌표·위도·경도는 허용 필드가 아니다(`lat` 등은 `INVALID_FIELDS` 400). 공개용 위치는 cell_x/y뿐이다.
 
 ```json
 {
@@ -43,9 +43,15 @@ header `Idempotency-Key: UUID`. 서버는 JSON 최대 8KB를 검사한다. 원�
   "original_text": "A multilingual original opinion.",
   "allow_map": false,
   "allow_player": false,
-  "notice_version": "2026-10-06-v1"
+  "notice_version": "2026-10-20-v2",
+  "review_pin": {
+    "lat": 36.0806, "lon": 129.3902,
+    "roadview": { "pano_id": 1187775125, "pin_pan": 36.19, "pin_tilt": 20.54, "view_pan": 0, "view_tilt": 0, "view_zoom": -3 }
+  }
 }
 ```
+
+`review_pin`(선택, 2026-10-20): **담당자 검토용** 정확한 핀. 글쓴이가 지도에 꽂은 좌표(또는 고른 주소 좌표)와, 로드뷰에서 핀을 꽂았으면 그 방향(pin_pan 0~360°, pin_tilt −90~90°)과 그때 보던 시점(view_pan·view_tilt·view_zoom −3~3, pano_id). 사진·주소 글자는 보내지 않는다. 좌표는 **보낸 cell 안**이어야 하며(서버 검증과 SQL 검증 둘 다) 아니면 `INVALID_PIN` 422(field location). 로드뷰가 없거나 핀을 안 꽂았으면 `roadview: null`. 저장은 `opinion_review_pins`(담당자만 읽기, 의견 삭제 시 함께 삭제)이고 공개 API·플레이어·목록·현황·로그에는 나오지 않는다. 지문(fingerprint)에 포함되므로 같은 키로 다른 핀을 보내면 409. 2026-10-20 SQL을 적용하지 않은 Supabase DB에서는 핀 없이 등록만 한다.
 
 서버 처리: request-size·Origin·필드 허용 목록 → NFC·길이·분야·언어·public setting 검증 → grid version·cell int·허용 지역 → canonical fingerprint·trusted IP HMAC → 서비스 전용 submit RPC 트랜잭션.
 
@@ -69,7 +75,7 @@ query `status=all|pending|published|hidden`, `page>=1`, `page_size=1..100` 기�
 
 ## GET /api/admin/opinions/{id}
 
-활성 담당자만 조회. 상세는 위 DTO와 notice_version·최소 작업 이력을 포함한다. 없는/삭제된 의견 404. 원문은 평문으로 렌더링한다. 모든 조회·변경은 담당자용 Supabase JWT client로 실행한다.
+활성 담당자만 조회. 상세는 위 DTO와 notice_version·최소 작업 이력, `review_pin`(`{lat, lon, roadview: {pano_id, pin_pan, pin_tilt, view_pan, view_tilt, view_zoom} | null} | null`, 핀이 저장되지 않았으면 null)을 포함한다. `review_pin`은 이 상세에서만 돌려준다. 없는/삭제된 의견 404. 원문은 평문으로 렌더링한다. 모든 조회·변경은 담당자용 Supabase JWT client로 실행한다.
 
 ## POST /api/admin/opinions/{id}/action
 

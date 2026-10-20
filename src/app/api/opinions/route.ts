@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       submission = validateSubmission(body, null);
     } catch (e) {
       if (e instanceof ValidationError) {
-        const field = e.code === 'INVALID_CELL' || e.code === 'INVALID_GRID' ? 'location' : e.field;
+        const field = e.code === 'INVALID_CELL' || e.code === 'INVALID_GRID' || e.code === 'INVALID_PIN' ? 'location' : e.field;
         throw new HttpError(SHAPE_ERRORS.has(e.code) ? 400 : 422, e.code, field);
       }
       throw e;
@@ -41,6 +41,7 @@ export async function POST(request: Request) {
       allow_map: submission.allow_map,
       allow_player: submission.allow_player,
       notice_version: submission.notice_version,
+      review_pin: submission.review_pin ?? null,
     });
     const status = receipt.created ? 201 : 200;
     const published = receipt.published === true;

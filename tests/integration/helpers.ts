@@ -31,7 +31,7 @@ export const validBody = (over: Record<string, unknown> = {}) => ({
   original_text: `[연결검수] ${randomUUID().slice(0, 8)} 자동 테스트 원문입니다`,
   allow_map: true,
   allow_player: true,
-  notice_version: '2026-10-06-v1',
+  notice_version: '2026-10-20-v2',
   ...over,
 });
 

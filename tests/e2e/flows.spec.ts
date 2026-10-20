@@ -1,6 +1,7 @@
 // 브라우저 연결 검수: 공개 지도 → 위치 태그 → 등록 → 담당자 검토 → 지도·플레이어 → 숨김·삭제.
 import { test as base, expect, type Page, type Request } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
+import { quantize } from '../../src/lib/domain/grid';
 import {
   admin, adminAction, adminGet, ensureUser, idByReference, loginCookie, publicIdOf, submit, validBody,
 } from '../integration/helpers';
@@ -129,8 +130,19 @@ test('T04·T05·T06·T11·X20: outside click keeps draft, location change keeps 
 
   expect(bodies).toHaveLength(1);
   const sent = JSON.parse(bodies[0]);
-  expect(Object.keys(sent).sort()).toEqual(['allow_map', 'allow_player', 'category', 'cell_x', 'cell_y', 'grid_version', 'language', 'notice_version', 'original_text']);
-  expect(bodies[0]).not.toMatch(/lat|lon|lng/);
+  // 새 SQL(담당자 검토용 핀)이 적용된 DB면 review_pin이 하나 더 간다. 그 밖의 공개용 필드에는 좌표가 없다.
+  const cfg = (await (await page.request.get('/api/public/config')).json()) as { review_pin?: boolean };
+  const keys = ['allow_map', 'allow_player', 'category', 'cell_x', 'cell_y', 'grid_version', 'language', 'notice_version', 'original_text', ...(cfg.review_pin ? ['review_pin'] : [])];
+  expect(Object.keys(sent).sort()).toEqual(keys.sort());
+  if (cfg.review_pin) {
+    expect(Object.keys(sent.review_pin).sort()).toEqual(['lat', 'lon', 'roadview']);
+    expect(sent.review_pin.roadview).toBeNull(); // 타일 지도에는 로드뷰가 없다
+    const q = quantize(sent.review_pin.lat, sent.review_pin.lon);
+    expect([q.cell_x, q.cell_y]).toEqual([sent.cell_x, sent.cell_y]);
+  }
+  const { review_pin: _pin, ...publicPart } = sent;
+  void _pin;
+  expect(JSON.stringify(publicPart)).not.toMatch(/lat|lon|lng/);
   for (const u of urls) expect(u).not.toMatch(/(lat|lng|lon)=/);
   expect(page.url()).not.toContain('OP-');
 
@@ -535,7 +547,7 @@ test('X22: with no allowed area or submissions disabled the page explains it and
   page.on('request', (r) => { if (r.url().endsWith('/api/opinions') && r.method() === 'POST') posted = true; });
   await page.route('**/api/public/config', (route) => route.fulfill({
     contentType: 'application/json',
-    body: JSON.stringify({ grid_version: 'pohang-v1', notice_version: '2026-10-06-v1', submissions_enabled: false, allowed_cells: [] }),
+    body: JSON.stringify({ grid_version: 'pohang-v1', notice_version: '2026-10-20-v2', submissions_enabled: false, allowed_cells: [] }),
   }));
   await page.goto('/submit');
   await expect(page.getByText('지금은 의견 등록을 받지 않습니다.')).toBeVisible();

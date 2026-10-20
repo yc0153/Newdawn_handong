@@ -4,7 +4,7 @@ import { readFile,readdir } from 'node:fs/promises';
 import { createHash,randomUUID } from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
 import { representative } from '../src/lib/domain/grid';
-import { textLengths } from '../src/lib/domain/validation';
+import { NOTICE_VERSION, textLengths } from '../src/lib/domain/validation';
 const operator='11111111-1111-4111-8111-111111111111';
 const outsider='22222222-2222-4222-8222-222222222222';
 const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
@@ -30,11 +30,12 @@ async function role(db:PGlite,r:string,id=''){
   await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);
   await db.exec(`set role ${r}`);
 }
-async function submit(db:PGlite,key=randomUUID(),text='1234567890',consent:[boolean,boolean]=[true,true],fingerprint=hash(text),rate=hash(key)){
+async function submit(db:PGlite,key=randomUUID(),text='1234567890',consent:[boolean,boolean]=[true,true],fingerprint=hash(text),rate=hash(key),pin?:unknown){
   await role(db,'service_role');
   const r=await db.query<{result:{reference:string;created:boolean;published?:boolean}}>(
-    'select public.submit_opinion($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) as result',
-    [key,fingerprint,rate,'pohang-v1',41,28,'transport','ko',text,...consent,'2026-10-06-v1']);
+    pin===undefined?'select public.submit_opinion($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) as result'
+      :'select public.submit_opinion($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb) as result',
+    [key,fingerprint,rate,'pohang-v1',41,28,'transport','ko',text,...consent,NOTICE_VERSION,...(pin===undefined?[]:[JSON.stringify(pin)])]);
   return r.rows[0].result;
 }
 async function action(db:PGlite,id:string,version:number,act:string,summary:string|null=null,player:boolean|null=null){
@@ -124,7 +125,7 @@ test('rate limits roll back, non-consented publication denied and SQL Unicode pa
       const r=await db.query<{n:number}>("select private.nonspace_count($1) as n",[text]);
       assert.equal(r.rows[0].n,textLengths(text).nonspace);
     }
-    await assert.rejects(()=>db.query('insert into public.opinions(cell_x,cell_y,category,language,original_text,notice_version) values(999,999,$1,$2,$3,$4)',['transport','ko','1234567890','2026-10-06-v1']),/foreign key/);
+    await assert.rejects(()=>db.query('insert into public.opinions(cell_x,cell_y,category,language,original_text,notice_version) values(999,999,$1,$2,$3,$4)',['transport','ko','1234567890',NOTICE_VERSION]),/foreign key/);
   }finally{await db.close();}
 });
 test('public truth table for browse/player matches the specification for every state (X08)',async()=>{
@@ -142,8 +143,8 @@ test('public truth table for browse/player matches the specification for every s
       if(deleted&&(status!=='hidden'||include||summary!==null))continue;
       n++;
       const r=await db.query<{public_id:string}>(`insert into public.opinions(cell_x,cell_y,category,language,original_text,allow_map,allow_player,notice_version,summary,status,include_in_player,deleted_at)
-        values(41,28,'other','ko',$1,$2,$3,'2026-10-06-v1',$4,$5,$6,$7) returning public_id`,
-        [deleted?null:'1234567890',map,player,summary,status,include,deleted?new Date().toISOString():null]);
+        values(41,28,'other','ko',$1,$2,$3,$8,$4,$5,$6,$7) returning public_id`,
+        [deleted?null:'1234567890',map,player,summary,status,include,deleted?new Date().toISOString():null,NOTICE_VERSION]);
       const visible=map&&status==='published'&&!deleted&&summary!==null;
       if(visible)expected.browse.add(r.rows[0].public_id);
       if(visible&&player&&include)expected.player.add(r.rows[0].public_id);
@@ -254,7 +255,56 @@ test('test mode auto-publish: off by default, respects consent, truncates, opera
     assert.equal(after.published,false);
     await role(db,'authenticated',operator);
     const settingsAudit=await db.query<{value:string}>('select value from public.settings_audit_logs order by created_at,id');
-    assert.equal(settingsAudit.rows.length,3);assert.equal(settingsAudit.rows.at(-1)!.value,'off');
+    // 같은 시각(ms)에 두 기록이 생기면 순서가 정해지지 않으므로 '끔' 기록이 하나 있는지로 본다.
+    assert.equal(settingsAudit.rows.length,3);assert.equal(settingsAudit.rows.filter(r=>r.value==='off').length,1);
     await role(db,'anon');await assert.rejects(()=>db.query('select * from public.settings_audit_logs'),/permission denied/);
+  }finally{await db.close();}
+});
+
+test('staff-only review pin: stored inside the cell, operator-only read, never public, removed on delete',async()=>{
+  const db=await boot();try{
+    await db.exec('update public.service_settings set submissions_enabled=true');
+    await role(db,'service_role');
+    const cfg=(await db.query<{r:Record<string,unknown>}>('select public.read_public_config() as r')).rows[0].r;
+    assert.equal(cfg.review_pin,true);assert.equal(cfg.notice_version,NOTICE_VERSION);
+    const c=representative({grid_version:'pohang-v1',cell_x:41,cell_y:28});
+    const rv={pano_id:1187902201,pin_pan:330,pin_tilt:12.5,view_pan:5.5,view_tilt:-3,view_zoom:1};
+    const pin={lat:c.lat+0.0004,lon:c.lon-0.0005,roadview:rv};
+    // 다른 칸 좌표·잘못된 로드뷰 값은 거절하고 아무것도 남기지 않는다.
+    await assert.rejects(()=>submit(db,randomUUID(),'1234567890',[true,true],undefined,undefined,{lat:c.lat+0.003,lon:c.lon}),/INVALID_PIN/);
+    await assert.rejects(()=>submit(db,randomUUID(),'1234567890',[true,true],undefined,undefined,{lat:'x',lon:c.lon}),/INVALID_PIN/);
+    await assert.rejects(()=>submit(db,randomUUID(),'1234567890',[true,true],undefined,undefined,{...pin,roadview:{...rv,pin_tilt:120}}),/INVALID_PIN/);
+    await assert.rejects(()=>submit(db,randomUUID(),'1234567890',[true,true],undefined,undefined,{...pin,roadview:{...rv,pano_id:-1}}),/INVALID_PIN/);
+    assert.equal((await raw(db)).length,0);
+    const key=randomUUID();
+    await submit(db,key,'1234567890',[true,true],undefined,undefined,pin);
+    await submit(db,key,'1234567890',[true,true],undefined,undefined,pin); // 같은 키 재시도: 핀도 1건
+    await submit(db,randomUUID(),'0987654321',[true,true],undefined,undefined,{lat:c.lat,lon:c.lon,roadview:null});
+    await submit(db,randomUUID(),'1122334455'); // 핀 없이(예전 화면) 등록도 그대로 된다
+    await role(db,'postgres');
+    const all=(await db.query<Record<string,unknown>>('select * from public.opinion_review_pins order by created_at')).rows;
+    assert.equal(all.length,2);
+    assert.equal(all[0].lat,pin.lat);assert.equal(Number(all[0].pano_id),rv.pano_id);assert.equal(all[0].pin_pan,330);
+    assert.equal(all[1].pano_id,null);
+    // 익명·일반 로그인은 읽지 못하고, 담당자도 직접 쓰거나 지우지 못한다.
+    await role(db,'anon');await assert.rejects(()=>db.query('select * from public.opinion_review_pins'),/permission denied/);
+    await role(db,'authenticated',outsider);assert.equal((await db.query('select * from public.opinion_review_pins')).rows.length,0);
+    await role(db,'authenticated',operator);
+    assert.equal((await db.query('select * from public.opinion_review_pins')).rows.length,2);
+    await assert.rejects(()=>db.query('delete from public.opinion_review_pins'),/permission denied/);
+    await assert.rejects(()=>db.query('update public.opinion_review_pins set lat=0'),/permission denied/);
+    await assert.rejects(()=>db.query('insert into public.opinion_review_pins(opinion_id,lat,lon) values($1,36,129)',[randomUUID()]),/permission denied/);
+    // 공개되어도 공개 응답에는 대표점만
+    const rows=await raw(db);const pinned=rows.find(r=>r.original_text==='1234567890')!;
+    let v=await action(db,pinned.id,1,'save_summary','핀 있는 의견');
+    v=await action(db,pinned.id,v.version,'publish');
+    const pub=await publicData(db);assert.equal(pub.length,1);
+    assert.deepEqual(Object.keys(pub[0]).sort(),['category','location','public_id','summary']);
+    assert.ok(!JSON.stringify(pub).includes(String(pin.lat)) && !JSON.stringify(pub).includes(String(rv.pano_id)));
+    // 삭제하면 핀도 지워진다.
+    await action(db,pinned.id,v.version,'delete');
+    await role(db,'postgres');
+    const left=(await db.query<{opinion_id:string}>('select opinion_id from public.opinion_review_pins')).rows;
+    assert.equal(left.length,1);assert.notEqual(left[0].opinion_id,pinned.id);
   }finally{await db.close();}
 });

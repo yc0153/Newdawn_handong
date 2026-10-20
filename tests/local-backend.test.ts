@@ -14,6 +14,7 @@ import { closeLocalDb } from '../src/lib/backend/local-db';
 import * as local from '../src/lib/backend/local';
 import * as auth from '../src/lib/backend/local-auth';
 import { backendMode } from '../src/lib/backend/mode';
+import { representative } from '../src/lib/domain/grid';
 
 // 환경 변수는 요청을 처리할 때 읽으므로 import 뒤에 정해도 된다.
 
@@ -27,19 +28,20 @@ delete process.env.TRUSTED_CLIENT_IP_HEADER;
 
 
 const ORIGIN = 'http://localhost:3000';
-type Config = { allowed_cells: { cell_x: number; cell_y: number }[]; submissions_enabled: boolean; test_auto_publish: boolean; notice_version: string; grid_version: string };
+type Config = { allowed_cells: { cell_x: number; cell_y: number }[]; submissions_enabled: boolean; test_auto_publish: boolean; review_pin?: boolean; notice_version: string; grid_version: string };
 
 async function config(): Promise<Config> {
   const res = await getConfig();
   assert.equal(res.status, 200);
   return (await res.json()) as Config;
 }
-async function submit(cfg: Config, opts: { key?: string; text?: string; map?: boolean; player?: boolean; origin?: string } = {}) {
+async function submit(cfg: Config, opts: { key?: string; text?: string; map?: boolean; player?: boolean; origin?: string; pin?: unknown } = {}) {
   const cell = cfg.allowed_cells[Math.floor(cfg.allowed_cells.length / 2)];
   const body = {
     grid_version: cfg.grid_version, cell_x: cell.cell_x, cell_y: cell.cell_y, category: 'transport', language: 'ko',
     original_text: opts.text ?? '버스 정류장 안내가 영어로도 있으면 좋겠습니다', allow_map: opts.map ?? true, allow_player: opts.player ?? true,
     notice_version: cfg.notice_version,
+    ...(opts.pin === undefined ? {} : { review_pin: opts.pin }),
   };
   return postOpinion(new Request(`${ORIGIN}/api/opinions`, {
     method: 'POST',
@@ -173,6 +175,25 @@ test('local DB: same API flow as Supabase without any external service', async (
     assert.deepEqual(ov.by_category, { transport: 2, language: 0, environment: 0, other: 0 });
     assert.equal(ov.rows.length, 2);
     assert.equal((await outsider.overview()).counts.total, 0);
+    assert.equal(detail?.review_pin, null, '핀 없이 등록한 의견');
+
+    // 담당자 검토용 정확한 핀: 고른 칸 안 좌표만 받고, 담당자 상세에서만 보인다(목록·공개 응답에는 없음)
+    assert.equal(cfg.review_pin, true);
+    const mid = cfg.allowed_cells[Math.floor(cfg.allowed_cells.length / 2)];
+    const c = representative({ grid_version: 'pohang-v1', ...mid });
+    const bad = await submit(cfg, { text: '다른 칸 좌표가 섞인 핀은 거절됩니다', pin: { lat: c.lat + 0.003, lon: c.lon } });
+    assert.equal(bad.status, 422);
+    assert.equal(((await bad.json()) as { error: { code: string } }).error.code, 'INVALID_PIN');
+    const rv = { pano_id: 1187902201, pin_pan: 330, pin_tilt: 12.5, view_pan: 5.5, view_tilt: -3, view_zoom: 0 };
+    const pinText = '정확한 핀과 로드뷰 방향을 함께 보냅니다';
+    assert.equal((await submit(cfg, { text: pinText, pin: { lat: c.lat + 0.0002, lon: c.lon - 0.0001, roadview: rv } })).status, 201);
+    const pinRow = (await op.listOpinions({ status: 'pending', page: 1, pageSize: 50 })).rows.find((r) => r.original_text === pinText)!;
+    assert.ok(pinRow && !('review_pin' in pinRow) && !('lat' in pinRow), '목록에는 핀이 없다');
+    assert.ok(!(await op.overview()).rows.some((r) => 'review_pin' in r || 'lat' in r), '현황에도 없다');
+    assert.deepEqual((await op.getOpinion(pinRow.id))?.review_pin, { lat: c.lat + 0.0002, lon: c.lon - 0.0001, roadview: rv });
+    assert.equal(await outsider.getOpinion(pinRow.id), null);
+    await op.action({ id: pinRow.id, expected_version: pinRow.version, action: 'delete', summary: null, include_in_player: null });
+    assert.equal(await op.getOpinion(pinRow.id), null);
   } finally {
     await closeLocalDb();
   }
