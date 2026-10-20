@@ -36,6 +36,7 @@
 | docs/DECISIONS.md | 확정 요구, 개발 기본값, 학교와 확정할 운영 항목 |
 | docs/SOURCE_MAP.md | 원문 페이지와 요구사항의 대응, 원본 해시 |
 | docs/SETUP.md | 로컬·클라우드 환경 준비와 출시 전 확인 |
+| docs/feedback/ | 팀 공유용 피드백 반영 정리(날짜별, 스크린샷 포함) |
 | docs/VERIFICATION.md | 실제 검증 결과와 남은 범위 |
 | tests/ | 단위·DB(PGlite)·연결(실스택)·브라우저 E2E 검수 |
 | scripts/create-local-operator.mjs | 로컬 전용 담당자 계정 생성 |
