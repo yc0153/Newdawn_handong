@@ -87,6 +87,19 @@ DB에서 행을 잠그고 expected_version을 확인한다. 실제 변경 시 ve
 
 성공 `{id,status,version,deleted}`. 이미 같은 값인 조치는 no-op으로 기존 version을 유지한다. 비밀 정보·raw payload가 오류에 나오지 않도록 DB 오류→안전한 HTTP 오류 code mapping을 작성한다. HTTP를 거치지 않은 authenticated RPC 호출도 비담당자면 거절해야 한다.
 
+## GET /api/admin/overview (2026-10-20)
+
+활성 담당자만. 담당자 첫 화면(`/admin`)용 집계. 삭제한 의견은 빼고 센다.
+
+```json
+{"counts":{"total":2,"pending":1,"published":1,"hidden":0,"in_player":1,"player_waiting":0},
+ "by_category":{"transport":2,"language":0,"environment":0,"other":0},
+ "items":[{"id":"…","category":"transport","status":"pending","location":{"lat":36.0,"lon":129.3},"summary":null,"preview":"원문 앞 80자","allow_map":true,"allow_player":true,"include_in_player":false,"created_at":"…"}],
+ "truncated":false,"limit":1000}
+```
+
+`items`는 최신순 최대 1000건(지도·검토 대기 목록용). 건수는 상한과 관계없이 정확하다.
+
 ## 테스트 모드 설정 (2026-10-19)
 
 `GET /api/admin/settings` → `{test_auto_publish, test_auto_publish_until, test_auto_publish_supported}` (활성 담당자만). `supported=false`는 DB에 2026-10-19 SQL이 아직 없다는 뜻이다.

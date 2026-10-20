@@ -5,7 +5,7 @@ import { mapDbError } from '@/lib/api/db-errors';
 import type { AdminAudit, PublicOpinion } from '@/lib/domain/types';
 import { asAuthServer, asRole, getLocalDb } from './local-db';
 import { verifyPassword } from './local-auth';
-import type { AdminRow, OperatorStore, PublicStore, RawConfig, SubmitParams, SubmitReceipt } from './types';
+import { OVERVIEW_ROW_LIMIT, type AdminRow, type OperatorStore, type PublicStore, type RawConfig, type SubmitParams, type SubmitReceipt } from './types';
 
 const ADMIN_SELECT =
   'id, category, language, public_lat, public_lon, original_text, allow_map, allow_player, summary, status, include_in_player, version, created_at';
@@ -96,6 +96,27 @@ export function localOperatorStore(userId: string): OperatorStore {
       if (!r.rows[0]?.result) throw new HttpError(503, 'SERVICE_UNAVAILABLE');
       return r.rows[0].result;
     }),
+    overview: () => guard(async () => as(async (tx) => {
+      const c = await tx.query<Record<string, number>>(`select count(*)::int as total,
+          count(*) filter (where status = 'pending')::int as pending,
+          count(*) filter (where status = 'published')::int as published,
+          count(*) filter (where status = 'hidden')::int as hidden,
+          count(*) filter (where status = 'published' and include_in_player)::int as in_player,
+          count(*) filter (where status = 'published' and allow_player and not include_in_player)::int as player_waiting
+        from public.opinions where deleted_at is null`);
+      const cats = await tx.query<{ category: string; n: number }>(
+        'select category, count(*)::int as n from public.opinions where deleted_at is null group by category');
+      const rows = await tx.query<Record<string, unknown>>(
+        `select ${ADMIN_SELECT} from public.opinions where deleted_at is null order by created_at desc, id desc limit $1`, [OVERVIEW_ROW_LIMIT]);
+      const by: Record<string, number> = { transport: 0, language: 0, environment: 0, other: 0 };
+      for (const r of cats.rows) by[r.category] = r.n;
+      const k = c.rows[0] ?? {};
+      return {
+        counts: { total: k.total ?? 0, pending: k.pending ?? 0, published: k.published ?? 0, hidden: k.hidden ?? 0, in_player: k.in_player ?? 0, player_waiting: k.player_waiting ?? 0 },
+        by_category: by,
+        rows: rows.rows.map(toRow),
+      };
+    })),
     setTestAutoPublish: (enabled, hours) => guard(async () => {
       const r = await as((tx) => tx.query<{ result: { test_auto_publish: boolean; test_auto_publish_until: string | null } }>(
         'select public.admin_set_test_auto_publish($1, $2) as result', [enabled, hours]));

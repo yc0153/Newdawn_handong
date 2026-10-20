@@ -141,20 +141,24 @@ async function migrate(db: PGlite) {
   }
 }
 
-/** 처음 한 번만: 테스트 배포와 같은 포항시 전체 격자를 열고 등록을 켠다. */
+/**
+ * 처음 한 번만: 테스트 배포와 같은 포항시 전체 격자를 열고 등록을 켠다.
+ * LOCAL_AREA=dev 이면 검수용 작은 사각형(supabase/dev/local_dev_setup.sql)을 연다.
+ */
 async function ensureArea(db: PGlite) {
   if (await meta(db, 'area')) return;
+  const area = process.env.LOCAL_AREA?.trim() === 'dev' ? 'local_dev_setup' : 'pohang_whole_city';
   const count = (await db.query<{ n: number }>('select count(*)::int as n from public.allowed_cells')).rows[0].n;
   if (count === 0) {
     try {
-      await db.exec(readFileSync(projectFile('supabase', 'dev', 'pohang_whole_city.sql'), 'utf8'));
+      await db.exec(readFileSync(projectFile('supabase', 'dev', `${area}.sql`), 'utf8'));
     } catch (e) {
       await db.exec('rollback').catch(() => undefined);
       throw new Error(`LOCAL_DB_AREA_FAILED: ${(e as Error).message}`);
     }
   }
   await db.exec('update public.service_settings set submissions_enabled = true where singleton');
-  await setMeta(db, 'area', 'pohang_whole_city');
+  await setMeta(db, 'area', area);
 }
 
 async function ensureSecret(db: PGlite) {

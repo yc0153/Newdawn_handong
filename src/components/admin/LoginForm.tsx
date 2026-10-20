@@ -29,7 +29,7 @@ export default function LoginForm({ localAuth = false }: { localAuth?: boolean }
         const { error: err } = await createClient().auth.signInWithPassword({ email: email.trim(), password });
         if (err) { setError('이메일 또는 비밀번호를 확인해 주세요.'); return; }
       }
-      router.replace('/admin/opinions');
+      router.replace('/admin');
       router.refresh();
     } catch {
       setError('지금은 로그인할 수 없습니다. 잠시 후 다시 시도해 주세요.');

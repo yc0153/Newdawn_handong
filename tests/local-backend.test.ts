@@ -166,6 +166,13 @@ test('local DB: same API flow as Supabase without any external service', async (
     v = await op.action({ id: row.id, expected_version: v.version, action: 'delete', summary: null, include_in_player: null });
     assert.equal(v.deleted, true);
     assert.equal((await publicList('player')).length, 1);
+
+    // 담당자 첫 화면 집계: 삭제한 의견은 빼고, 비담당자는 RLS로 0건
+    const ov = await op.overview();
+    assert.deepEqual(ov.counts, { total: 2, pending: 1, published: 1, hidden: 0, in_player: 1, player_waiting: 0 });
+    assert.deepEqual(ov.by_category, { transport: 2, language: 0, environment: 0, other: 0 });
+    assert.equal(ov.rows.length, 2);
+    assert.equal((await outsider.overview()).counts.total, 0);
   } finally {
     await closeLocalDb();
   }

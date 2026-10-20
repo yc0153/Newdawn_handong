@@ -52,6 +52,8 @@ export default function SubmitFlow() {
   const [addrList, setAddrList] = useState<AddressList>({ status: 'ready', items: [] });
   const [query, setQuery] = useState('');
   const [focus, setFocus] = useState<{ lat: number; lon: number; zoom?: number; token: number } | null>(null);
+  // 화면에 핀을 꽂을 자리(누른 곳 또는 고른 주소). 이 브라우저 화면에만 쓰고 서버로 보내지 않는다.
+  const [pickPoint, setPickPoint] = useState<{ lat: number; lon: number } | null>(null);
   const lookup = useRef(0);
 
   useEffect(() => {
@@ -110,7 +112,7 @@ export default function SubmitFlow() {
     panelWasOpen.current = now;
   }, [panelOpen, pickerOpen, reducedMotion]);
 
-  // 지도 클릭·Enter: 원좌표는 이 함수 안에서만 쓰고 격자 번호만 남긴다.
+  // 지도 클릭·Enter: 서버에는 격자 번호만 보낸다. 원좌표는 화면의 핀 표시와 주변 주소 찾기에만 쓴다.
   const onPick = useCallback((lat: number, lon: number) => {
     if (!open || submitting || done) return;
     let picked: Cell;
@@ -126,6 +128,7 @@ export default function SubmitFlow() {
       return;
     }
     setCell(picked);
+    setPickPoint({ lat, lon });
     setChoosing(false);
     setLocationNotice(null);
     setErrors((e) => ({ ...e, location: undefined }));
@@ -156,6 +159,7 @@ export default function SubmitFlow() {
     try { q = quantize(it.lat, it.lon); } catch { return; }
     if (!allowed.has(cellKey(q.cell_x, q.cell_y))) { setLocationNotice('submit.outside'); return; }
     setCell({ cell_x: q.cell_x, cell_y: q.cell_y });
+    setPickPoint({ lat: it.lat, lon: it.lon });
     setLocationNotice(null);
     setPlace({ stage: 'view', item: it });
     setFocus((f) => ({ lat: it.lat, lon: it.lon, zoom: 17, token: (f?.token ?? 0) + 1 }));
@@ -165,11 +169,12 @@ export default function SubmitFlow() {
     }
   }, [allowed, reducedMotion]);
 
+  // 영역(원) 없이 누른 자리에 핀만 꽂는다. 같은 200m 칸 안에서 다시 눌러도 핀이 그 자리로 옮겨진다.
   const tag = useMemo(() => {
     if (!cell) return null;
-    const p = representative({ grid_version: GRID_VERSION, ...cell });
+    const p = pickPoint ?? representative({ grid_version: GRID_VERSION, ...cell });
     return { lat: p.lat, lon: p.lon, label: t('panel.location') };
-  }, [cell, t]);
+  }, [cell, pickPoint, t]);
 
   const lengths = textLengths(draft.text);
 

@@ -8,7 +8,7 @@ import { operatorStatus } from '@/lib/backend/operator';
 export const metadata: Metadata = { title: '로그인' };
 
 export default async function LoginPage() {
-  if ((await operatorStatus()) === 'ok') redirect('/admin/opinions');
+  if ((await operatorStatus()) === 'ok') redirect('/admin');
   return (
     <>
       <AdminHeader showLogout={false} localAuth={isLocalBackend()} />

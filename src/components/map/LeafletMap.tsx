@@ -162,17 +162,14 @@ export default function LeafletMap(props: LeafletMapProps) {
     }
   }, [props.groups, props.fit]);
 
-  // 선택한 대략 위치 태그
+  // 고른 자리의 핀(영역 표시 없이 핀만). 클릭을 막지 않아 주변을 다시 누르면 그 자리로 옮겨진다.
   useEffect(() => {
     const g = tag.current;
     if (!g) return;
     g.clearLayers();
     if (!props.tag) return;
-    L.circle([props.tag.lat, props.tag.lon], { radius: 100, color: '#00405D', weight: 2, dashArray: '4 4', fillColor: '#005378', fillOpacity: 0.18, interactive: false }).addTo(g);
-    const icon = L.divIcon({ className: 'pin-wrap', html: '<span class="tag-dot" aria-hidden="true">+</span>', iconSize: [30, 30], iconAnchor: [15, 15] });
-    L.marker([props.tag.lat, props.tag.lon], { icon, interactive: false, keyboard: false })
-      .bindTooltip(props.tag.label, { permanent: true, direction: 'bottom', offset: [0, 14], className: 'tag-tooltip' })
-      .addTo(g);
+    const icon = L.divIcon({ className: 'pin-wrap pick-pin', html: '<span class="pin pin--pick" aria-hidden="true"><span class="pin__n">+</span></span>', iconSize: [34, 42], iconAnchor: [17, 40] });
+    L.marker([props.tag.lat, props.tag.lon], { icon, interactive: false, keyboard: false }).addTo(g);
   }, [props.tag]);
 
   // 선택 위치로 이동

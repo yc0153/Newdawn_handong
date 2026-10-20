@@ -70,6 +70,17 @@ test('L01: without Supabase, an opinion is stored locally and stays private unti
   expect(cfg.submissions_enabled).toBe(true);
   expect(cfg.test_auto_publish).toBe(false);
 
+  // 지도에서 누르면 영역(원) 없이 그 자리에 핀만 꽂히고, 바로 옆을 다시 눌러도 핀이 옮겨진다.
+  await page.goto('/submit');
+  await clickInsideArea(page);
+  const pick = page.locator('.leaflet-marker-pane .pick-pin');
+  await expect(pick).toHaveCount(1);
+  await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(2); // 허용 영역 채움 + 경계선뿐(원 없음)
+  const before = (await pick.boundingBox())!;
+  await page.mouse.click(before.x + before.width / 2 + 10, before.y + before.height + 6);
+  await expect.poll(async () => Math.round(((await pick.boundingBox())!.x - before.x))).toBe(10);
+  await expect(page.locator('.map-instruction')).toContainText('누른 곳에 핀을 꽂았습니다');
+
   const text = `[로컬E2E] 검토 대기 의견 ${randomUUID().slice(0, 6)}`;
   await submitOpinion(page, text, { player: true });
   await expect(page.getByRole('heading', { name: '의견이 등록되었습니다.' })).toBeVisible();
@@ -88,9 +99,19 @@ test('L02: local operator login, one-click "지도·플레이어에 공개", the
   expect((await page.request.get('/api/admin/opinions')).status()).toBe(401);
 
   await login(page);
-  await expect(page.getByRole('heading', { name: '등록 의견' })).toBeVisible();
+  // 로그인하면 담당자 첫 화면(/admin, 전체 현황): 상태별 건수·지도·검토 대기
+  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page.getByRole('heading', { name: '전체 현황' })).toBeVisible();
   await expect(page.locator('.admin-header')).toContainText('로컬 DB');
-  const row = page.locator('.admin-row', { hasText: '[로컬E2E] 검토 대기 의견' }).first();
+  await expect(page.locator('.overview__tile', { hasText: '검토 대기' }).locator('.overview__value')).toHaveText('1');
+  await expect(page.locator('.overview__tile', { hasText: '전체' }).locator('.overview__value')).toHaveText('1');
+  await expect(page.locator('.overview__map .leaflet-marker-icon')).toHaveCount(1);
+  await page.locator('.overview__map .leaflet-marker-icon').click();
+  await expect(page.getByRole('heading', { name: '이 위치의 의견 1건' })).toBeVisible();
+  await page.getByRole('link', { name: '의견 목록', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '등록 의견' })).toBeVisible();
+  await page.getByRole('link', { name: '전체 현황', exact: true }).click();
+  const row = page.locator('.overview__item', { hasText: '[로컬E2E] 검토 대기 의견' }).first();
   await expect(row).toBeVisible();
   await row.click();
 
@@ -114,6 +135,8 @@ test('L02: local operator login, one-click "지도·플레이어에 공개", the
 
 test('L03: test mode publishes new opinions at once, so two submissions auto-play; switching it off restores review', async ({ page, browser }) => {
   await login(page);
+  await expect(page.getByRole('heading', { name: '전체 현황' })).toBeVisible();
+  await page.goto('/admin/opinions');
   await expect(page.getByRole('heading', { name: '테스트 모드 · 검토 없이 바로 공개' })).toBeVisible();
   await page.getByRole('button', { name: '테스트 모드 켜기' }).click();
   await expect(page.getByRole('button', { name: '테스트 모드 끄기' })).toBeVisible();
@@ -160,7 +183,7 @@ test('L03: test mode publishes new opinions at once, so two submissions auto-pla
 
 test('L04: logout ends the local session; cross-origin writes are refused', async ({ page }) => {
   await login(page);
-  await expect(page.getByRole('heading', { name: '등록 의견' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '전체 현황' })).toBeVisible();
   await page.getByRole('button', { name: '로그아웃' }).click();
   await expect(page).toHaveURL(/\/admin\/login$/);
   expect((await page.request.get('/api/admin/opinions')).status()).toBe(401);

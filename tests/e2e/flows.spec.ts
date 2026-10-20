@@ -445,6 +445,8 @@ test('A01: operator reviews, summarises, publishes, includes in player; concurre
   await page.fill('#a-email', OP1.email);
   await page.fill('#a-password', OP1.password);
   await page.getByRole('button', { name: '로그인' }).click();
+  await expect(page.getByRole('heading', { name: '전체 현황' })).toBeVisible();
+  await page.getByRole('link', { name: '의견 목록', exact: true }).click();
   await expect(page.getByRole('heading', { name: '등록 의견' })).toBeVisible();
   await expect(page.locator('.admin-list')).toContainText(text);
   await page.locator('.admin-row', { hasText: text }).click();
@@ -479,7 +481,7 @@ test('A01: operator reviews, summarises, publishes, includes in player; concurre
   await op2.fill('#a-email', OP2.email);
   await op2.fill('#a-password', OP2.password);
   await op2.getByRole('button', { name: '로그인' }).click();
-  await expect(op2.getByRole('heading', { name: '등록 의견' })).toBeVisible();
+  await expect(op2.getByRole('heading', { name: '전체 현황' })).toBeVisible();
   await op2.goto(`/admin/opinions/${id}`);
   await op2.getByRole('button', { name: '숨김', exact: true }).click();
   await expect(op2.locator('.status--hidden')).toBeVisible();

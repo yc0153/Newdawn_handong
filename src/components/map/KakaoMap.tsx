@@ -161,7 +161,7 @@ export default function KakaoMap(props: KakaoMapProps) {
     if (props.fit === 'pins' && !fitted.current && groups.length > 0) { fitted.current = true; fitWhenSized(bounds, 40, 15); }
   }, [ready, props.groups, props.fit]);
 
-  // 선택한 대략 위치 태그
+  // 고른 자리의 핀(영역 표시 없이 핀만). 핀은 클릭을 막지 않아 주변을 다시 누르면 그 자리로 옮겨진다.
   useEffect(() => {
     const m = map.current, kakao = k.current;
     if (!ready || !m || !kakao) return;
@@ -169,18 +169,11 @@ export default function KakaoMap(props: KakaoMapProps) {
     tagObjs.current = [];
     if (!props.tag) return;
     const pos = new kakao.maps.LatLng(props.tag.lat, props.tag.lon);
-    tagObjs.current.push(new kakao.maps.Circle({ map: m, center: pos, radius: 100, strokeWeight: 2, strokeColor: PRIMARY_DARK, strokeStyle: 'dash', fillColor: PRIMARY, fillOpacity: 0.18 }));
-    const box = document.createElement('div');
-    box.className = 'kakao-tag';
-    const dot = document.createElement('span');
-    dot.className = 'tag-dot';
-    dot.setAttribute('aria-hidden', 'true');
-    dot.textContent = '+';
-    const label = document.createElement('span');
-    label.className = 'kakao-tag__label';
-    label.textContent = props.tag.label;
-    box.append(dot, label);
-    tagObjs.current.push(new kakao.maps.CustomOverlay({ map: m, position: pos, content: box, xAnchor: 0.5, yAnchor: 0.25, zIndex: 4 }));
+    const box = document.createElement('span');
+    box.className = 'pick-pin';
+    box.setAttribute('aria-hidden', 'true');
+    box.innerHTML = '<span class="pin pin--pick"><span class="pin__n">+</span></span>';
+    tagObjs.current.push(new kakao.maps.CustomOverlay({ map: m, position: pos, content: box, xAnchor: 0.5, yAnchor: 1, zIndex: 4 }));
   }, [ready, props.tag]);
 
   // 선택 위치로 이동

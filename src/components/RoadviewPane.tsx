@@ -79,28 +79,50 @@ export default function RoadviewPane(props: {
     const rv = rvRef.current;
     if (!rv) return;
     // 보이지 않는 시험 오버레이로 '각도 변화 → 화면 이동'을 그 자리에서 재고(뉴턴법) 누른 곳의 방향을 찾는다.
+    // 가장자리 근처를 누르면 시험 방향이 화면 밖으로 나가 잴 수 없을 수 있다. 그래서
+    //  - 기울기는 바깥쪽(+)이 안 되면 안쪽(-)으로 재고,
+    //  - 한 번에 너무 많이 돌려 화면 밖으로 나가면 반씩 줄여 다시 해 보고,
+    //  - 끝까지 1px 안으로 못 맞춰도 가장 가까웠던 방향에 핀을 꽂는다.
     const probeEl = document.createElement('span');
     probeEl.className = 'roadview__probe';
     const probe = new kakao.maps.CustomOverlay({ content: probeEl, xAnchor: 0.5, yAnchor: 1 });
     const vp = rv.getViewpoint();
-    let dir: Dir = { pan: vp.pan, tilt: vp.tilt };
     const STEP = 1.5;
+    const clampTilt = (t: number) => Math.max(-85, Math.min(85, t));
+    const gap = (p: { x: number; y: number }) => Math.hypot(p.x - x, p.y - y);
+    let dir: Dir = { pan: vp.pan, tilt: vp.tilt };
     let J: { a: number; b: number; c: number; d: number; det: number } | null = null;
     try {
-      for (let i = 0; i < 5; i++) {
-        const p0 = await placeAt(probe, probeEl, dir);
-        if (!p0) return;
-        if (Math.hypot(p0.x - x, p0.y - y) < 1) break;
-        const pp = await placeAt(probe, probeEl, { pan: dir.pan + STEP, tilt: dir.tilt });
-        const pt = await placeAt(probe, probeEl, { pan: dir.pan, tilt: dir.tilt + STEP });
-        if (!pp || !pt) return;
-        const a = (pp.x - p0.x) / STEP, c = (pp.y - p0.y) / STEP;
-        const b = (pt.x - p0.x) / STEP, d = (pt.y - p0.y) / STEP;
+      let p0 = await placeAt(probe, probeEl, dir);
+      if (!p0) return;
+      const slope = async (axis: 'pan' | 'tilt', at: { x: number; y: number }) => {
+        for (const h of [STEP, -STEP]) {
+          const q = axis === 'pan' ? { pan: dir.pan + h, tilt: dir.tilt } : { pan: dir.pan, tilt: clampTilt(dir.tilt + h) };
+          const real = axis === 'pan' ? h : q.tilt - dir.tilt;
+          if (real === 0) continue;
+          const p = await placeAt(probe, probeEl, q);
+          if (p) return { dx: (p.x - at.x) / real, dy: (p.y - at.y) / real };
+        }
+        return null;
+      };
+      for (let i = 0; i < 8 && gap(p0) >= 1; i++) {
+        const sp = await slope('pan', p0);
+        const st = await slope('tilt', p0);
+        if (!sp || !st) break;
+        const a = sp.dx, c = sp.dy, b = st.dx, d = st.dy;
         const det = a * d - b * c;
-        if (!Number.isFinite(det) || Math.abs(det) < 1e-6) return;
+        if (!Number.isFinite(det) || Math.abs(det) < 1e-6) break;
         J = { a, b, c, d, det };
         const dx = x - p0.x, dy = y - p0.y;
-        dir = { pan: dir.pan + (d * dx - b * dy) / det, tilt: dir.tilt + (-c * dx + a * dy) / det };
+        let stepPan = (d * dx - b * dy) / det, stepTilt = (-c * dx + a * dy) / det;
+        let moved = false;
+        for (let k = 0; k < 5; k++) {
+          const cand = { pan: dir.pan + stepPan, tilt: clampTilt(dir.tilt + stepTilt) };
+          const pc = await placeAt(probe, probeEl, cand);
+          if (pc && gap(pc) < gap(p0)) { dir = cand; p0 = pc; moved = true; break; }
+          stepPan /= 2; stepTilt /= 2;
+        }
+        if (!moved) break;
       }
     } finally {
       probe.setMap(null);
@@ -119,12 +141,16 @@ export default function RoadviewPane(props: {
     const overlay = new kakao.maps.CustomOverlay({ content, xAnchor: 0.5, yAnchor: 1, zIndex: 5 });
     pinOverlay.current = overlay;
     // 안전장치: 핀 자체 위치를 다시 재서 어긋나 있으면 맞춘다(오버레이 크기에 따라 기준점이 다를 수 있음).
+    let good = dir;
     for (let i = 0; i < 3; i++) {
       const at = await placeAt(overlay, content, dir);
-      if (!at || !J || Math.hypot(at.x - x, at.y - y) < 1.5) break;
+      if (!at) { if (dir !== good) await placeAt(overlay, content, good); break; }
+      good = dir;
+      if (!J || Math.hypot(at.x - x, at.y - y) < 1.5) break;
       const dx = x - at.x, dy = y - at.y;
-      dir = { pan: dir.pan + (J.d * dx - J.b * dy) / J.det, tilt: dir.tilt + (-J.c * dx + J.a * dy) / J.det };
+      dir = { pan: dir.pan + (J.d * dx - J.b * dy) / J.det, tilt: clampTilt(dir.tilt + (-J.c * dx + J.a * dy) / J.det) };
     }
+    if (!overlay.getMap?.()) overlay.setMap(rv);
     setHasPin(true);
   }, [kakao, placeAt]);
 

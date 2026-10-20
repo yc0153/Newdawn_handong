@@ -98,6 +98,13 @@
       const pos = this.opts.position ?? this.opts.center;
       if (!pos || !this.map) return;
       const p = this.map.project(pos);
+      // 실제 카카오 로드뷰처럼 화면 밖 방향의 오버레이는 감춘다(가장자리 핀 검수용).
+      if (this.map instanceof Roadview) {
+        const W = this.map.node.clientWidth, H = this.map.node.clientHeight;
+        const out = !Number.isFinite(p.x) || !Number.isFinite(p.y) || p.x < 0 || p.y < 0 || p.x > W || p.y > H;
+        this.el.style.display = out ? 'none' : '';
+        if (out) return;
+      }
       const w = this.el.offsetWidth, h = this.el.offsetHeight;
       this.el.style.left = `${p.x - (this.opts.xAnchor ?? 0.5) * w}px`;
       this.el.style.top = `${p.y - (this.opts.yAnchor ?? 0.5) * h}px`;

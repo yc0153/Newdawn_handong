@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import MapView from './map/MapView';
+import PlayerRoadview from './PlayerRoadview';
 import { useI18n } from './I18nProvider';
 import { usePublicSnapshot } from '@/lib/client/usePublicSnapshot';
 import { useReducedMotion } from '@/lib/client/useReducedMotion';
@@ -9,6 +10,7 @@ import { CATEGORY_KEYS } from '@/lib/client/categories';
 import { PLAYER_INTERVAL_MS } from '@/lib/domain/freshness';
 import { initialPlayer, playerReducer } from '@/lib/domain/player';
 import { mapProvider } from '@/lib/map/provider';
+import { loadKakao, type Kakao } from '@/lib/map/kakao';
 
 function typingTarget(el: EventTarget | null) {
   if (!(el instanceof HTMLElement)) return false;
@@ -25,6 +27,14 @@ export default function PlayerView() {
   const [fullscreen, setFullscreen] = useState(false);
   const [fsError, setFsError] = useState(false);
   const stage = useRef<HTMLDivElement>(null);
+  // 카카오 지도일 때만 거리 모습(로드뷰)을 함께 보여 준다. SDK를 못 불러오면 지도만.
+  const [kakao, setKakao] = useState<Kakao | null>(null);
+  useEffect(() => {
+    if (provider?.kind !== 'kakao') return;
+    let cancelled = false;
+    loadKakao(provider.appKey, provider.sdkUrl).then((k) => { if (!cancelled) setKakao(k); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [provider]);
 
   const fresh = view.kind === 'fresh' ? view.cases : null;
   const ids = useMemo(() => (fresh ? fresh.map((c) => c.public_id) : []), [fresh]);
@@ -104,15 +114,18 @@ export default function PlayerView() {
       </header>
 
       <div className="player__stage">
-        <section className="player__map" aria-label={t('player.place')}>
-          <MapView provider={provider} ariaLabel={t('player.place')} groups={groups} focus={focus} reducedMotion={reducedMotion} onTileStatus={setTileStatus} compact />
-          {(!provider || tileStatus === 'failed') && current ? (
-            <div className="map-alert map-alert--dark" role="status">
-              <span>{t('player.mapUnavailable')}</span>
-              <strong>{t('player.coords', { lat: current.location.lat.toFixed(5), lon: current.location.lon.toFixed(5) })}</strong>
-            </div>
-          ) : null}
-        </section>
+        <div className={`player__visual${kakao && current ? ' player__visual--split' : ''}`}>
+          <section className="player__map" aria-label={t('player.place')}>
+            <MapView provider={provider} ariaLabel={t('player.place')} groups={groups} focus={focus} reducedMotion={reducedMotion} onTileStatus={setTileStatus} compact />
+            {(!provider || tileStatus === 'failed') && current ? (
+              <div className="map-alert map-alert--dark" role="status">
+                <span>{t('player.mapUnavailable')}</span>
+                <strong>{t('player.coords', { lat: current.location.lat.toFixed(5), lon: current.location.lon.toFixed(5) })}</strong>
+              </div>
+            ) : null}
+          </section>
+          {kakao && current ? <PlayerRoadview kakao={kakao} lat={current.location.lat} lon={current.location.lon} /> : null}
+        </div>
 
         <section className="player__card" aria-live="polite" aria-atomic="true">
           {current ? (

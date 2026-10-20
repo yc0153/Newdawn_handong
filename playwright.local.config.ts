@@ -39,7 +39,6 @@ export default defineConfig({
         NEXT_PUBLIC_MAP_TILE_URL: 'http://127.0.0.1:8099/{z}/{x}/{y}.svg',
         NEXT_PUBLIC_MAP_ATTRIBUTION: '검수용 테스트 타일',
         NEXT_PUBLIC_KAKAO_MAP_KEY: '',
-        NEXT_DIST_DIR: '.next-local-e2e',
       },
     },
   ],

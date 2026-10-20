@@ -10,7 +10,7 @@ export type MapProps = {
   onPinSelect?: (key: string) => void;
   allowedCells?: { cell_x: number; cell_y: number }[];
   tag?: { lat: number; lon: number; label: string } | null;
-  /** 클릭·Enter 위치. 받는 쪽은 즉시 격자로 바꾸고 원좌표를 보관하지 않는다. */
+  /** 클릭·Enter 위치. 받는 쪽은 서버에 격자 번호만 보내고, 원좌표는 화면 표시(핀)에만 쓴다. */
   onPick?: (lat: number, lon: number) => void;
   focus?: { lat: number; lon: number; zoom?: number; token: number } | null;
   fit?: 'allowed' | 'pins' | null;

@@ -58,11 +58,20 @@ export type AdminActionParams = {
 
 export type AdminActionResult = { id: string; status: string; version: number; deleted: boolean };
 
+/** 담당자 첫 화면(전체 현황)용 집계. 삭제된 의견은 빼고 센다. rows는 최신순 최대 OVERVIEW_ROW_LIMIT건. */
+export type AdminOverviewData = {
+  counts: { total: number; pending: number; published: number; hidden: number; in_player: number; player_waiting: number };
+  by_category: Record<string, number>;
+  rows: AdminRow[];
+};
+export const OVERVIEW_ROW_LIMIT = 1000;
+
 export interface OperatorStore {
   userId: string;
   listOpinions(q: { status: string; page: number; pageSize: number }): Promise<{ rows: AdminRow[]; total: number }>;
   getOpinion(id: string): Promise<{ row: AdminRow; audit: AdminAudit[] } | null>;
   action(p: AdminActionParams): Promise<AdminActionResult>;
+  overview(): Promise<AdminOverviewData>;
   /** 켜면 hours시간 뒤 저절로 꺼진다. */
   setTestAutoPublish(enabled: boolean, hours: number): Promise<{ enabled: boolean; until: string | null }>;
 }

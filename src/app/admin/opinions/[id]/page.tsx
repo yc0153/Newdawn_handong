@@ -16,7 +16,7 @@ export default async function AdminOpinionPage({ params }: { params: Promise<{ i
   if (!guard.ok) return <AdminGuardMessage status={guard.status} />;
   return (
     <>
-      <AdminHeader localAuth={isLocalBackend()} />
+      <AdminHeader localAuth={isLocalBackend()} active="list" />
       <main className="admin-main"><AdminDetail id={id} selfId={guard.userId} /></main>
     </>
   );

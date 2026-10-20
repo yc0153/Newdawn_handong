@@ -6,7 +6,7 @@ import { mapDbError } from '@/lib/api/db-errors';
 import { ADMIN_COLUMNS, toAudit } from '@/lib/api/admin-dto';
 import { createPublicRpcClient } from '@/lib/supabase/privileged';
 import type { AdminAudit, PublicOpinion } from '@/lib/domain/types';
-import type { AdminRow, OperatorStore, PublicStore, RawConfig, SubmitReceipt } from './types';
+import { OVERVIEW_ROW_LIMIT, type AdminRow, type OperatorStore, type PublicStore, type RawConfig, type SubmitReceipt } from './types';
 
 function client() {
   try { return createPublicRpcClient(); } catch { throw new HttpError(503, 'CONFIG_INCOMPLETE'); }
@@ -105,6 +105,33 @@ export function supabaseOperatorStore(supabase: SupabaseClient, userId: string):
         .abortSignal(signal());
       if (error || !data) throw mapDbError(error);
       return data as { id: string; status: string; version: number; deleted: boolean };
+    },
+    async overview() {
+      const s = signal();
+      // 건수는 행 상한과 관계없이 정확히 센다(head 요청은 행을 받지 않는다).
+      const count = () => supabase.from('opinions').select('id', { count: 'exact', head: true }).is('deleted_at', null).abortSignal(s);
+      const categories = ['transport', 'language', 'environment', 'other'];
+      const [total, pending, published, hidden, inPlayer, waiting, rows, ...cats] = await Promise.all([
+        count(),
+        count().eq('status', 'pending'),
+        count().eq('status', 'published'),
+        count().eq('status', 'hidden'),
+        count().eq('status', 'published').eq('include_in_player', true),
+        count().eq('status', 'published').eq('allow_player', true).eq('include_in_player', false),
+        supabase.from('opinions').select(ADMIN_COLUMNS).is('deleted_at', null)
+          .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(OVERVIEW_ROW_LIMIT).abortSignal(s),
+        ...categories.map((c) => count().eq('category', c)),
+      ]);
+      const all = [total, pending, published, hidden, inPlayer, waiting, rows, ...cats];
+      if (all.some((r) => r.error)) throw new HttpError(503, 'SERVICE_UNAVAILABLE');
+      return {
+        counts: {
+          total: total.count ?? 0, pending: pending.count ?? 0, published: published.count ?? 0, hidden: hidden.count ?? 0,
+          in_player: inPlayer.count ?? 0, player_waiting: waiting.count ?? 0,
+        },
+        by_category: Object.fromEntries(categories.map((c, i) => [c, cats[i].count ?? 0])),
+        rows: (rows.data ?? []) as unknown as AdminRow[],
+      };
     },
     async setTestAutoPublish(enabled, hours) {
       const { data, error } = await supabase.rpc('admin_set_test_auto_publish', { p_enabled: enabled, p_hours: hours }).abortSignal(signal());
