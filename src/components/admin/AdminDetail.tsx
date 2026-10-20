@@ -53,6 +53,16 @@ export default function AdminDetail({ id, selfId }: { id: string; selfId: string
     void load(false);
   }, [load]);
 
+  // 지도에 넘기는 값은 숫자가 바뀔 때만 새로 만든다(요약을 입력할 때마다 지도가 다시 그려지거나 이동하지 않게).
+  const dd = detail.data;
+  const pinLat = dd?.review_pin?.lat, pinLon = dd?.review_pin?.lon;
+  const repLat = dd?.location.lat, repLon = dd?.location.lon, repId = dd?.id, repCat = dd?.category;
+  const group = useMemo(() => (repId && repCat && repLat !== undefined && repLon !== undefined
+    ? [{ key: repId, lat: repLat, lon: repLon, count: 1, category: repCat, active: true, label: '공개되는 대략 위치' }] : []), [repId, repCat, repLat, repLon]);
+  const exactTag = useMemo(() => (pinLat !== undefined && pinLon !== undefined ? { lat: pinLat, lon: pinLon, label: '글쓴이가 꽂은 핀' } : null), [pinLat, pinLon]);
+  const mapFocus = useMemo(() => (pinLat !== undefined && pinLon !== undefined ? { lat: pinLat, lon: pinLon, zoom: 16, token: 1 }
+    : repLat !== undefined && repLon !== undefined ? { lat: repLat, lon: repLon, zoom: 15, token: 1 } : null), [pinLat, pinLon, repLat, repLon]);
+
   // 조치 하나 또는 여러 개를 차례로 실행한다(예: 공개 → 상영 포함). 앞 조치가 돌려준 버전으로 다음 조치를 보낸다.
   async function act(body: ActionBody | ActionBody[], okText: string) {
     if (!detail.data) return;
@@ -127,10 +137,7 @@ export default function AdminDetail({ id, selfId }: { id: string; selfId: string
   const canPublish = d.allow_map && d.status !== 'published' && (dirty ? summaryValid : !!d.summary);
   const saveFirst: ActionBody[] = dirty ? [{ action: 'save_summary', summary }] : [];
   const canPlayer = d.allow_map && d.allow_player;
-  const group = [{ key: d.id, lat: d.location.lat, lon: d.location.lon, count: 1, category: d.category, active: true, label: '공개되는 대략 위치' }];
   const pin = d.review_pin;
-  const exactTag = pin ? { lat: pin.lat, lon: pin.lon, label: '글쓴이가 꽂은 핀' } : null;
-  const mapFocus = pin ? { lat: pin.lat, lon: pin.lon, zoom: 16, token: 1 } : { lat: d.location.lat, lon: d.location.lon, zoom: 15, token: 1 };
 
   return (
     <div className="admin-detail">

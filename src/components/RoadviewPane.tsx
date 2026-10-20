@@ -135,6 +135,8 @@ export default function RoadviewPane(props: {
     } finally {
       probe.setMap(null);
     }
+    // 재는 동안 다른 장소로 바꿨거나 화면을 닫았으면 그만둔다(옛 장소 핀이 새 장소에 붙지 않게).
+    if (rvRef.current !== rv) return;
     const content = document.createElement('span');
     content.className = 'roadview__droppin';
     content.setAttribute('aria-hidden', 'true');
@@ -158,12 +160,18 @@ export default function RoadviewPane(props: {
       const dx = x - at.x, dy = y - at.y;
       dir = { pan: dir.pan + (J.d * dx - J.b * dy) / J.det, tilt: clampTilt(dir.tilt + (-J.c * dx + J.a * dy) / J.det) };
     }
+    if (rvRef.current !== rv) { overlay.setMap(null); return; }
     if (!overlay.getMap?.()) overlay.setMap(rv);
     // 핀이 놓인 방향(good)과 핀을 꽂을 때 보던 시점. 담당자 화면에서 같은 장면을 다시 연다.
-    const norm = (p: number) => ((p % 360) + 360) % 360;
+    // 값이 이상하면(카카오 응답 변화 등) 로드뷰 핀은 빼고 의견 등록은 막지 않는다.
+    const norm = (p: number) => { const v = ((p % 360) + 360) % 360; return v >= 360 ? 0 : v; };
     const pano = Number(rv.getPanoId());
-    snap.current = Number.isSafeInteger(pano) && pano > 0
-      ? { pano_id: pano, pin_pan: norm(good.pan), pin_tilt: good.tilt, view_pan: norm(vp.pan), view_tilt: vp.tilt, view_zoom: vp.zoom ?? 0 }
+    const zoom = Number(vp.zoom ?? 0);
+    const fine = Number.isSafeInteger(pano) && pano > 0
+      && [good.pan, good.tilt, vp.pan, vp.tilt, zoom].every(Number.isFinite)
+      && Math.abs(good.tilt) <= 90 && Math.abs(vp.tilt) <= 90 && Math.abs(zoom) <= 3;
+    snap.current = fine
+      ? { pano_id: pano, pin_pan: norm(good.pan), pin_tilt: good.tilt, view_pan: norm(vp.pan), view_tilt: vp.tilt, view_zoom: zoom }
       : null;
     setHasPin(true);
     if (after.current.pinned) after.current.onPin(snap.current);

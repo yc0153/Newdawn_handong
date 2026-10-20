@@ -117,7 +117,7 @@ test('anonymous and publishable-key access cannot read raw data or call privileg
   assert.ok(s.error);
   const a = await anon.rpc('admin_opinion_action', { p_id: randomUUID(), p_expected_version: 1, p_action: 'publish' });
   assert.ok(a.error);
-  for (const table of ['submission_receipts', 'rate_buckets', 'allowed_cells', 'service_settings', 'admin_audit_logs', 'operator_memberships']) {
+  for (const table of ['submission_receipts', 'rate_buckets', 'allowed_cells', 'service_settings', 'admin_audit_logs', 'operator_memberships', 'opinion_review_pins']) {
     const r = await anon.from(table).select('*');
     assert.ok(r.error, `anon must not read ${table}`);
   }

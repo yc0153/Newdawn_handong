@@ -499,7 +499,7 @@ grant select on public.opinion_review_pins to authenticated;
 drop policy if exists operator_review_pin_read on public.opinion_review_pins;
 create policy operator_review_pin_read on public.opinion_review_pins for select to authenticated using(
   exists(select 1 from public.operator_memberships m where m.user_id=(select auth.uid()) and m.active)
-  and exists(select 1 from public.opinions o where o.id=opinion_id and o.deleted_at is null)
+  and exists(select 1 from public.opinions o where o.id=opinion_review_pins.opinion_id and o.deleted_at is null)
 );
 
 -- 의견 삭제(deleted_at 기록) 때 핀도 지운다.
@@ -548,15 +548,19 @@ begin
   if p_language is null or p_language not in ('ko','en','other') then raise exception 'INVALID_LANGUAGE'; end if;
   -- 담당자 검토용 핀: 고른 칸 안의 좌표만 받는다(격자 계산은 공개 대표점 열과 같은 식, 경계 오차만 허용).
   if p_review_pin is not null and jsonb_typeof(p_review_pin)<>'null' then
-    if jsonb_typeof(p_review_pin)<>'object' or jsonb_typeof(p_review_pin->'lat') is distinct from 'number'
-      or jsonb_typeof(p_review_pin->'lon') is distinct from 'number' then raise exception 'INVALID_PIN'; end if;
+    -- 객체인지 먼저 따로 본다(jsonb_object_keys는 배열이면 오류를 내고, OR의 계산 순서는 보장되지 않음).
+    if jsonb_typeof(p_review_pin)<>'object' then raise exception 'INVALID_PIN'; end if;
+    if jsonb_typeof(p_review_pin->'lat') is distinct from 'number' or jsonb_typeof(p_review_pin->'lon') is distinct from 'number'
+      or exists(select 1 from jsonb_object_keys(p_review_pin) k where k not in ('lat','lon','roadview')) then raise exception 'INVALID_PIN'; end if;
     v_lat:=(p_review_pin->>'lat')::double precision; v_lon:=(p_review_pin->>'lon')::double precision;
     v_fx:=6371008.8*(v_lon-129.3)*(pi()/180.0)*cos(36.04*(pi()/180.0))/200.0;
     v_fy:=6371008.8*(v_lat-36.0)*(pi()/180.0)/200.0;
     if v_fx<p_cell_x-1e-6 or v_fx>p_cell_x+1+1e-6 or v_fy<p_cell_y-1e-6 or v_fy>p_cell_y+1+1e-6 then raise exception 'INVALID_PIN'; end if;
     v_rv:=nullif(p_review_pin->'roadview','null'::jsonb);
     if v_rv is not null then
-      if jsonb_typeof(v_rv)<>'object' or coalesce(v_rv->>'pano_id','') !~ '^[1-9][0-9]{0,15}$'
+      if jsonb_typeof(v_rv)<>'object' then raise exception 'INVALID_PIN'; end if;
+      if jsonb_typeof(v_rv->'pano_id') is distinct from 'number' or coalesce(v_rv->>'pano_id','') !~ '^[1-9][0-9]{0,15}$'
+        or exists(select 1 from jsonb_object_keys(v_rv) k where k not in ('pano_id','pin_pan','pin_tilt','view_pan','view_tilt','view_zoom'))
         or jsonb_typeof(v_rv->'pin_pan') is distinct from 'number' or jsonb_typeof(v_rv->'pin_tilt') is distinct from 'number'
         or jsonb_typeof(v_rv->'view_pan') is distinct from 'number' or jsonb_typeof(v_rv->'view_tilt') is distinct from 'number'
         or jsonb_typeof(v_rv->'view_zoom') is distinct from 'number' then raise exception 'INVALID_PIN'; end if;
@@ -618,5 +622,6 @@ revoke all on function public.read_public_config() from public,anon,authenticate
 grant execute on function public.read_public_config() to service_role;
 
 -- 위치 안내 문구 변경: "공개는 약 200m 대표 지점, 꽂은 핀의 정확한 위치는 담당자 검토에만 사용"
-update public.service_settings set notice_version='2026-10-20-v2' where singleton;
+-- 다시 실행해도 이후에 올린 버전을 되돌리지 않도록, 예전 버전일 때만 바꾼다.
+update public.service_settings set notice_version='2026-10-20-v2' where singleton and notice_version='2026-10-06-v1';
 commit;

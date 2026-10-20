@@ -258,6 +258,7 @@ export default function SubmitFlow() {
       else if (code === 'TEXT_TOO_LONG') setErrors((x) => ({ ...x, text: 'err.long' }));
       else if (code === 'INVALID_CATEGORY') setErrors((x) => ({ ...x, category: 'err.category' }));
       else if (code === 'INVALID_LANGUAGE') setErrors((x) => ({ ...x, language: 'err.language' }));
+      else if (code === 'INVALID_PIN') setErrors((x) => ({ ...x, location: 'err.location' }));
       else if (code === 'OUTSIDE_AREA' || code === 'INVALID_GRID' || code === 'INVALID_CELL') {
         setErrors((x) => ({ ...x, location: 'submit.outside' }));
         void loadConfig();

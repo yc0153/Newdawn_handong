@@ -49,10 +49,11 @@ export const supabasePublicStore: PublicStore = {
       p_allow_player: p.allow_player,
       p_notice_version: p.notice_version,
     };
+    // p_review_pin은 핀이 없어도(null) 늘 보낸다. 예전 12개 인자 함수가 다시 생겨도(옛 SQL 재실행) 새 함수로 정확히 찾아간다.
     const call = (pin: boolean) => client().rpc('submit_opinion', pin ? { ...args, p_review_pin: p.review_pin } : args).abortSignal(signal());
-    let { data, error } = await call(p.review_pin !== null);
+    let { data, error } = await call(true);
     // 새 SQL(정확한 핀) 적용 전 DB: 예전 함수로 등록만 하고 핀은 저장하지 않는다.
-    if (p.review_pin !== null && missingFunction(error)) ({ data, error } = await call(false));
+    if (missingFunction(error)) ({ data, error } = await call(false));
     if (error || !data) throw mapDbError(error);
     return data as SubmitReceipt;
   },

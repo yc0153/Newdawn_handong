@@ -275,6 +275,11 @@ test('staff-only review pin: stored inside the cell, operator-only read, never p
     await assert.rejects(()=>submit(db,randomUUID(),'1234567890',[true,true],undefined,undefined,{lat:'x',lon:c.lon}),/INVALID_PIN/);
     await assert.rejects(()=>submit(db,randomUUID(),'1234567890',[true,true],undefined,undefined,{...pin,roadview:{...rv,pin_tilt:120}}),/INVALID_PIN/);
     await assert.rejects(()=>submit(db,randomUUID(),'1234567890',[true,true],undefined,undefined,{...pin,roadview:{...rv,pano_id:-1}}),/INVALID_PIN/);
+    await assert.rejects(()=>submit(db,randomUUID(),'1234567890',[true,true],undefined,undefined,{...pin,roadview:{...rv,pano_id:'1187902201'}}),/INVALID_PIN/);
+    await assert.rejects(()=>submit(db,randomUUID(),'1234567890',[true,true],undefined,undefined,{...pin,roadview:{...rv,extra:1}}),/INVALID_PIN/);
+    await assert.rejects(()=>submit(db,randomUUID(),'1234567890',[true,true],undefined,undefined,{...pin,extra:1}),/INVALID_PIN/);
+    await assert.rejects(()=>submit(db,randomUUID(),'1234567890',[true,true],undefined,undefined,[1,2]),/INVALID_PIN/);
+    await assert.rejects(()=>submit(db,randomUUID(),'1234567890',[true,true],undefined,undefined,{...pin,roadview:[1]}),/INVALID_PIN/);
     assert.equal((await raw(db)).length,0);
     const key=randomUUID();
     await submit(db,key,'1234567890',[true,true],undefined,undefined,pin);
