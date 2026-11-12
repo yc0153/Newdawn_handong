@@ -1,5 +1,20 @@
-// 방문자 화면의 한·영 안내 문구. 원문·담당자 요약은 번역하지 않는다.
-export type Lang = 'ko' | 'en';
+// 방문자 화면의 안내 문구(15개 언어). 원문·담당자 요약은 번역하지 않는다.
+// ko·en은 이 파일에, 나머지 언어는 locales/에 있다. 키가 빠지면 타입 검사에서 걸린다.
+import { LANGS, type Lang } from './langs';
+import zh from './locales/zh';
+import vi from './locales/vi';
+import id from './locales/id';
+import fil from './locales/fil';
+import th from './locales/th';
+import km from './locales/km';
+import ja from './locales/ja';
+import hi from './locales/hi';
+import ne from './locales/ne';
+import si from './locales/si';
+import mn from './locales/mn';
+import uz from './locales/uz';
+import ur from './locales/ur';
+export { LANGS, type Lang };
 
 const ko = {
   'site.title': '포항 생활의견 지도',
@@ -8,8 +23,7 @@ const ko = {
   'nav.submit': '의견 남기기',
   'nav.player': '현황 상영',
   'nav.lip': 'LIP 메인',
-  'nav.lang': 'English',
-  'nav.langLabel': '언어 전환: English',
+  'nav.language': '언어',
   'nav.main': '주요 메뉴',
   'eyebrow': 'COMMUNITY VOICES · POHANG',
   'map.title': '장소에 담긴 생활의견을 살펴보세요.',
@@ -180,8 +194,7 @@ const en: Record<MessageKey, string> = {
   'nav.submit': 'Share an opinion',
   'nav.player': 'Showcase',
   'nav.lip': 'LIP home',
-  'nav.lang': '한국어',
-  'nav.langLabel': 'Switch language: 한국어',
+  'nav.language': 'Language',
   'nav.main': 'Main menu',
   'eyebrow': 'COMMUNITY VOICES · POHANG',
   'map.title': 'Explore everyday opinions, place by place.',
@@ -343,7 +356,9 @@ const en: Record<MessageKey, string> = {
   'devMap': 'Development map tiles',
 };
 
-export const messages: Record<Lang, Record<MessageKey, string>> = { ko, en };
+export type Messages = Record<MessageKey, string>;
+export const messages: Record<Lang, Messages> = { ko, en, zh, vi, id, fil, th, km, ja, hi, ne, si, mn, uz, ur };
+void LANGS;
 
 export function format(template: string, vars: Record<string, string | number> = {}) {
   return template.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? ''));

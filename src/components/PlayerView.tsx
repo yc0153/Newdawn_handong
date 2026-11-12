@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import MapView from './map/MapView';
 import PlayerRoadview from './PlayerRoadview';
 import { useI18n } from './I18nProvider';
+import LanguageSelect from './LanguageSelect';
 import { usePublicSnapshot } from '@/lib/client/usePublicSnapshot';
 import { useReducedMotion } from '@/lib/client/useReducedMotion';
 import { CATEGORY_KEYS } from '@/lib/client/categories';
@@ -18,7 +19,7 @@ function typingTarget(el: EventTarget | null) {
 }
 
 export default function PlayerView() {
-  const { t, lang, setLang } = useI18n();
+  const { t } = useI18n();
   const { view, retry } = usePublicSnapshot('player');
   const reducedMotion = useReducedMotion();
   const provider = useMemo(() => mapProvider(), []);
@@ -108,7 +109,7 @@ export default function PlayerView() {
         <span className="player__brand">{t('site.title')}</span>
         <span className="player__crumb"><span className="player__eyebrow">COMMUNITY VOICES</span> {t('player.title')}</span>
         <span className="player__links">
-          <button type="button" className="player__lang" onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')} aria-label={t('nav.langLabel')}>{t('nav.lang')}</button>
+          <LanguageSelect variant="player" />
           <Link href="/map">{t('player.back')} <span aria-hidden="true">↗</span></Link>
         </span>
       </header>

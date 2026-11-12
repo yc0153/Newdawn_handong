@@ -530,7 +530,7 @@ test('X17: no horizontal overflow at 360/768/1440, at 200% text, and English UI 
   }
   await page.setViewportSize({ width: 768, height: 900 });
   await page.goto('/submit');
-  await page.getByRole('button', { name: /English/ }).click();
+  await page.getByRole('combobox', { name: '언어' }).selectOption('en');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your everyday opinions, with a place.');
   await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
   await clickInsideArea(page);

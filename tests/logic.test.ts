@@ -115,6 +115,15 @@ test('http: 8KB limit, JSON object only, content type, same origin', async () =>
     assert.doesNotThrow(() => assertSameOrigin(new Request('http://x', { headers: { origin: 'http://localhost:3000' } })));
     assert.throws(() => assertSameOrigin(new Request('http://x', { headers: { origin: 'http://localhost:3001' } })), /CROSS_ORIGIN/);
     assert.throws(() => assertSameOrigin(new Request('http://x')), /CROSS_ORIGIN/);
+    // 주소를 옮기는 동안: 쉼표로 여러 주소를 허용한다(빈칸·끝의 / 무시)
+    process.env.APP_ORIGIN = ' https://map.lip.center/ , https://newdawn-handong.vercel.app ';
+    assert.doesNotThrow(() => assertSameOrigin(new Request('http://x', { headers: { origin: 'https://map.lip.center' } })));
+    assert.doesNotThrow(() => assertSameOrigin(new Request('http://x', { headers: { origin: 'https://newdawn-handong.vercel.app' } })));
+    assert.throws(() => assertSameOrigin(new Request('http://x', { headers: { origin: 'https://lip.center' } })), /CROSS_ORIGIN/);
+    assert.throws(() => assertSameOrigin(new Request('http://x', { headers: { origin: 'http://map.lip.center' } })), /CROSS_ORIGIN/);
+    // 잘못 적은 값은 전부 거절(설정 오류)
+    process.env.APP_ORIGIN = 'https://map.lip.center,not a url';
+    assert.throws(() => assertSameOrigin(new Request('http://x', { headers: { origin: 'https://map.lip.center' } })), /CONFIG_INCOMPLETE/);
     delete process.env.APP_ORIGIN;
     assert.throws(() => assertSameOrigin(new Request('http://x', { headers: { origin: 'http://localhost:3000' } })), /CONFIG_INCOMPLETE/);
     // 로컬 DB 모드는 APP_ORIGIN이 없으면 요청을 받은 주소만 허용한다
@@ -190,4 +199,26 @@ test('review pin: part of the idempotency fingerprint, safe DB error, DB row con
     { lat: 36.1, lon: 129.3, roadview: { pano_id: 1187902201, pin_pan: 10, pin_tilt: 2, view_pan: 5, view_tilt: 0, view_zoom: 0 } });
   assert.deepEqual(toReviewPin({ lat: 36.1, lon: 129.3, pano_id: null, pin_pan: null, pin_tilt: null, view_pan: null, view_tilt: null, view_zoom: null }), { lat: 36.1, lon: 129.3, roadview: null });
   assert.equal(toReviewPin(undefined), null);
+});
+
+test('language from another site (?lang=): 15 languages and common aliases', async () => {
+  const { normalizeLang, LANGS, htmlLang } = await import('../src/lib/i18n/langs');
+  assert.equal(LANGS.length, 15);
+  for (const l of LANGS) assert.equal(normalizeLang(l.code), l.code);
+  const cases: [string, string | null][] = [
+    ['VI', 'vi'], ['zh-CN', 'zh'], ['zh_Hans', 'zh'], ['tl', 'fil'], ['en-US', 'en'], ['ko-KR', 'ko'], ['jp', 'ja'], ['kh', 'km'],
+    ['uz-Latn', 'uz'], ['np', 'ne'], ['ur-PK', 'ur'], ['mn-MN', 'mn'], ['in', 'id'], ['fr', null], ['', null], [' ', null], ['x'.repeat(40), null],
+  ];
+  for (const [input, want] of cases) assert.equal(normalizeLang(input), want, input);
+  assert.equal(normalizeLang(null), null);
+  assert.equal(htmlLang('zh'), 'zh-Hans');
+  const { messages } = await import('../src/lib/i18n/messages');
+  for (const l of LANGS) {
+    const m = messages[l.code];
+    for (const k of Object.keys(messages.ko) as (keyof typeof m)[]) {
+      assert.ok(m[k]?.trim(), `${l.code} ${k} empty`);
+      const want = (messages.en[k].match(/\{\w+\}/g) ?? []).sort().join();
+      assert.equal((m[k].match(/\{\w+\}/g) ?? []).sort().join(), want, `${l.code} ${k} placeholders`);
+    }
+  }
 });

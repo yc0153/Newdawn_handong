@@ -79,7 +79,7 @@ npm run dev              # http://localhost:3000
 | NEXT_PUBLIC_SUPABASE_URL | 프로젝트 API URL | 해당 프로젝트 확인 |
 | NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY | 담당자 Auth·JWT client | secret를 넣지 않음 |
 | SUPABASE_SECRET_KEY | 공개 read/submit RPC server-only | 실제 호스트의 비밀 환경 변수 |
-| APP_ORIGIN | Same Origin POST검사 | 배포 도메인과 일치 |
+| APP_ORIGIN | Same Origin POST검사 | 배포 도메인과 일치. 주소를 옮기는 동안처럼 여러 개면 쉼표로 적는다(예: `https://map.lip.center,https://newdawn-handong.vercel.app`) |
 | RATE_LIMIT_HMAC_SECRET | 일일 IP 제한 HMAC | 충분한 길이의 임의 값 |
 | TRUSTED_CLIENT_IP_HEADER | 플랫폼이 보장한 client IP header | 헤더명과 신뢰 proxy 동작을 직접 검증 |
 | NEXT_PUBLIC_KAKAO_MAP_KEY | 카카오 지도 JavaScript 키(로드뷰·주소 검색). 있으면 카카오 지도, 불러오기 실패 시 타일 지도로 대체 | 카카오 개발자 콘솔에서 사이트 도메인 등록, 카카오맵 사용 설정 ON. REST·Admin 키는 넣지 않음 |
@@ -138,6 +138,26 @@ Supabase 설정:
 
 최종 `https://배포도메인/map`, `/submit`, `/player`와 query alias를 검증한다. 메인 오른쪽 버튼은 /map이 목적지다. LIP 링크는 기존 메인으로 돌아간다. iframe이면 학교 origin만 frame-ancestors에 허용하고 관리자 화면은 삽입을 막는다. 기본은 독립 링크이며 기존 학교 사이트 자체를 수정하지 않는다.
 
-## 6 출시 확인
+## 6 팀 DB·새 주소·언어 연동 (2026-11-12)
+
+**팀 Supabase로 옮기기**
+1. 팀 프로젝트 SQL Editor에서 `supabase/manual/setup_all.sql` → `supabase/dev/pohang_whole_city.sql` 순서로 실행한다.
+2. Authentication → Users → Add user로 담당자 계정을 사람마다 만든다(Auto Confirm 켜기, 긴 비밀번호).
+3. `supabase/manual/2026-11-12_team_db_finish.sql`의 이메일만 바꿔 실행한다(의견 받기 켜기 + 담당자 명단 등록, 마지막 줄로 확인).
+4. Vercel 환경 변수 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`를 팀 값으로 바꾸고 Redeploy한다. 키는 채팅에 붙이지 않는다.
+
+**새 주소 `map.lip.center`**
+1. Vercel → Settings → Domains에 `map.lip.center`를 추가하고, Vercel이 알려 주는 DNS 레코드(이름 `map`의 CNAME 등)를 lip.center 도메인 관리자에게 전달한다.
+2. 연결되면 `APP_ORIGIN=https://map.lip.center,https://newdawn-handong.vercel.app`으로 바꾸고 Redeploy한다(옮기는 동안 두 주소 모두 등록 가능).
+3. 카카오 개발자 콘솔 → 앱 → 플랫폼 → Web 사이트 도메인에 `https://map.lip.center`를 추가한다(안 하면 새 주소에서 지도가 안 뜸).
+4. lip.center가 지도를 iframe으로 넣는다면 `ALLOWED_FRAME_ANCESTORS=https://lip.center https://www.lip.center`를 설정한다.
+
+**lip.center 언어 연동**
+- 지도 주소에 `?lang=<코드>`를 붙여 열면 그 언어로 바뀌고, 같은 브라우저에서는 다음에도 유지된다. `locale`, `hl`도 받는다.
+- 코드: ko, en, zh, vi, id, fil, th, km, ja, hi, ne, si, mn, uz, ur. `zh-CN`, `tl`, `en-US`, `vn`, `jp` 같은 흔한 다른 표기도 알아듣는다.
+- 예: `https://map.lip.center/map?lang=vi`, `https://map.lip.center/submit?lang=ur`(우르두어는 오른쪽→왼쪽 화면)
+- 화면 문구 번역은 초안이다(`src/lib/i18n/locales/`). 원어민 검토 후 고친다. 의견 원문·담당자 요약·카카오 지도 지명은 번역하지 않는다.
+
+## 7 출시 확인
 
 학교의 지역·담당자·공개 안내·보유기간·지도 이용 조건·연결방식 확정, 실제 Supabase 연결검수, ACCEPTANCE 통과, 모바일·한영·접근성 검수, 키·로그·cache·빈도제한·철회 검수 후 수집을 시작한다. 비용·규모 수치는 원문에 없으므로 임의 운영 성과나 예상 SLA로 적지 않는다.

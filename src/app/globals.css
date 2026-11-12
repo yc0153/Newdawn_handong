@@ -58,7 +58,12 @@ a { color: var(--primary); }
 .site-nav__link[aria-current="page"] { color: var(--ink); }
 .site-nav__link[aria-current="page"]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 6px; height: 2px; background: var(--primary); }
 .site-nav__link--ext { font-weight: 500; }
-.lang-toggle { min-height: 36px; padding: 0 12px; border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); font: inherit; font-size: 13px; font-weight: 700; color: var(--ink); cursor: pointer; }
+.lang-select { position: relative; display: inline-flex; align-items: center; color: var(--ink); }
+.lang-select__icon { position: absolute; inset-inline-start: 10px; pointer-events: none; opacity: .75; }
+.lang-select__control { min-height: 36px; max-width: 11.5em; padding-block: 0; padding-inline: 32px 10px; border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); font: inherit; font-size: 13px; font-weight: 700; color: inherit; cursor: pointer; }
+.lang-select--player { color: #fff; }
+.lang-select--player .lang-select__control { background: rgba(255,255,255,.14); border-color: transparent; }
+.lang-select--player .lang-select__control option { color: #111; background: #fff; }
 
 /* 페이지 */
 .page { max-width: 1320px; margin: 0 auto; padding: 28px 24px 40px; }
@@ -257,7 +262,7 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.65; }
 .player__eyebrow { font-size: 12px; letter-spacing: .14em; color: var(--sky); margin-right: 8px; font-weight: 600; }
 .player__links { display: flex; align-items: center; gap: 12px; }
 .player__links a { color: #f2f6f8; min-height: 44px; display: inline-flex; align-items: center; }
-.player__lang { min-height: 36px; background: rgba(255,255,255,.14); border: none; color: #fff; border-radius: var(--radius); padding: 0 12px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+
 .player__stage { display: grid; grid-template-columns: 1.15fr 1fr; gap: 20px; flex: 1; min-height: 0; }
 .player__visual { display: flex; flex-direction: column; gap: 12px; min-height: 420px; min-width: 0; }
 .player__map { position: relative; border-radius: var(--radius); overflow: hidden; min-height: 420px; flex: 1; background: #0b3344; }
@@ -431,3 +436,6 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.65; }
 .admin-rv__msg { position: absolute; inset: 0; z-index: 1; margin: 0; display: grid; place-items: center; color: #fff; font-weight: 600; padding: 16px; text-align: center; }
 .admin-rv__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; padding: 8px 10px; border-top: 1px solid var(--line); }
 .admin-rv__actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* 오른쪽→왼쪽 언어(우르두어): 글은 오른쪽부터, 지도·로드뷰는 원래 방향 그대로 */
+[dir="rtl"] .leaflet-host, [dir="rtl"] .leaflet-container, [dir="rtl"] .roadview__view, [dir="rtl"] .player-rv__view, [dir="rtl"] .admin-rv__view { direction: ltr; }

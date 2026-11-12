@@ -2,6 +2,7 @@
 import { test as base, expect, type Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { LOCAL_E2E_OPERATOR as OP } from '../../playwright.local.config';
+import { messages } from '../../src/lib/i18n/messages';
 
 const test = base.extend({
   // 테스트마다 다른 클라이언트로 보이게 해 등록 빈도 제한이 서로 간섭하지 않게 한다.
@@ -189,4 +190,33 @@ test('L04: logout ends the local session; cross-origin writes are refused', asyn
   expect((await page.request.get('/api/admin/opinions')).status()).toBe(401);
   const res = await page.request.post('/api/admin/session', { headers: { origin: 'https://evil.example', 'content-type': 'application/json' }, data: { email: OP.email, password: OP.password } });
   expect(res.status()).toBe(403);
+});
+
+test('L05: language from lip.center (?lang=), 15-language select, right-to-left Urdu keeps the map left-to-right', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/map?lang=vi');
+  await expect(page.getByRole('link', { name: messages.vi['nav.submit'] })).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'vi');
+  const select = page.getByRole('combobox', { name: messages.vi['nav.language'] });
+  await expect(select).toHaveValue('vi');
+  await expect(select.locator('option')).toHaveCount(15);
+  // 다른 표기(zh-CN)도 알아듣는다
+  await page.goto('/map?lang=zh-CN');
+  await expect(page.getByRole('link', { name: messages.zh['nav.submit'] })).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'zh-Hans');
+  // 직접 고르기: 우르두어는 화면이 오른쪽→왼쪽, 지도는 그대로
+  await page.getByRole('combobox', { name: messages.zh['nav.language'] }).selectOption('ur');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await expect(page.getByRole('link', { name: messages.ur['nav.submit'] })).toBeVisible();
+  // 다음 화면에서도 유지되고(주소 값 없음), 모르는 값은 무시한다
+  await page.goto('/submit');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await expect(page.locator('.leaflet-host').first()).toHaveCSS('direction', 'ltr');
+  await page.goto('/submit?lang=fr');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ur');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+  // 한국어로 되돌리기
+  await page.goto('/map?lang=ko');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+  await expect(page.getByRole('link', { name: messages.ko['nav.submit'] })).toBeVisible();
 });

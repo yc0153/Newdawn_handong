@@ -77,14 +77,26 @@ export function fromHttpError(e: unknown) {
 
 /**
  * 같은 출처의 브라우저 요청만 허용한다. APP_ORIGIN이 없으면 안전하게 실패한다.
+ * 주소를 옮기는 동안처럼 여러 주소를 받아야 하면 쉼표로 적는다.
+ *   예) APP_ORIGIN=https://map.lip.center,https://newdawn-handong.vercel.app
  * 로컬 DB 모드(PC 한 대에서 실행)에서 APP_ORIGIN을 비워 두면 요청을 받은 주소를 기준으로 삼는다.
  */
+export function allowedOrigins(value: string | undefined): string[] | null {
+  if (!value?.trim()) return null;
+  try {
+    const list = value.split(',').map((v) => v.trim()).filter(Boolean).map((v) => new URL(v).origin);
+    return list.length ? list : null;
+  } catch {
+    return null;
+  }
+}
+
 export function assertSameOrigin(request: Request) {
-  let expected = process.env.APP_ORIGIN;
-  if (!expected && isLocalBackend()) expected = new URL(request.url).origin;
+  let expected = allowedOrigins(process.env.APP_ORIGIN);
+  if (!expected && !process.env.APP_ORIGIN?.trim() && isLocalBackend()) expected = [new URL(request.url).origin];
   if (!expected) throw new HttpError(503, 'CONFIG_INCOMPLETE');
   const origin = request.headers.get('origin');
-  if (!origin || origin !== new URL(expected).origin) throw new HttpError(403, 'CROSS_ORIGIN');
+  if (!origin || !expected.includes(origin)) throw new HttpError(403, 'CROSS_ORIGIN');
 }
 
 /** 본문을 최대 크기까지만 읽고 JSON 객체로 파싱한다. */
