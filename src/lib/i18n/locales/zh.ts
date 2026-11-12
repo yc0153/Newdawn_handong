@@ -64,7 +64,7 @@ const m: Messages = {
   "place.heading": "请从附近的详细地址中选择地点。",
   "place.lead": "以下是您点击位置附近的地址。如果没有您要找的地点，请搜索。",
   "place.searchLabel": "搜索地址或地点",
-  "place.searchPlaceholder": "例如：浦项市政府",
+  "place.searchPlaceholder": "例如：浦项市政府 (포항시청)",
   "place.search": "搜索",
   "place.loading": "正在查找地址…",
   "place.empty": "未找到地址。请换个名称试试。",

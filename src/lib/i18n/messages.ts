@@ -250,7 +250,7 @@ const en: Record<MessageKey, string> = {
   'place.heading': 'Choose a detailed address nearby.',
   'place.lead': 'These addresses are around where you tapped. Search if you do not see the place.',
   'place.searchLabel': 'Search address or place',
-  'place.searchPlaceholder': 'e.g. Pohang City Hall',
+  'place.searchPlaceholder': 'e.g. Pohang City Hall (포항시청)',
   'place.search': 'Search',
   'place.loading': 'Finding addresses…',
   'place.empty': 'No address found. Try another name.',

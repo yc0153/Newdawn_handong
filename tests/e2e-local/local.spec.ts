@@ -195,19 +195,19 @@ test('L04: logout ends the local session; cross-origin writes are refused', asyn
 test('L05: language from lip.center (?lang=), 15-language select, right-to-left Urdu keeps the map left-to-right', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/map?lang=vi');
-  await expect(page.getByRole('link', { name: messages.vi['nav.submit'] })).toBeVisible();
+  await expect(page.locator('.site-nav').getByRole('link', { name: messages.vi['nav.submit'] })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'vi');
   const select = page.getByRole('combobox', { name: messages.vi['nav.language'] });
   await expect(select).toHaveValue('vi');
   await expect(select.locator('option')).toHaveCount(15);
   // 다른 표기(zh-CN)도 알아듣는다
   await page.goto('/map?lang=zh-CN');
-  await expect(page.getByRole('link', { name: messages.zh['nav.submit'] })).toBeVisible();
+  await expect(page.locator('.site-nav').getByRole('link', { name: messages.zh['nav.submit'] })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'zh-Hans');
   // 직접 고르기: 우르두어는 화면이 오른쪽→왼쪽, 지도는 그대로
   await page.getByRole('combobox', { name: messages.zh['nav.language'] }).selectOption('ur');
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-  await expect(page.getByRole('link', { name: messages.ur['nav.submit'] })).toBeVisible();
+  await expect(page.locator('.site-nav').getByRole('link', { name: messages.ur['nav.submit'] })).toBeVisible();
   // 다음 화면에서도 유지되고(주소 값 없음), 모르는 값은 무시한다
   await page.goto('/submit');
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
@@ -218,5 +218,5 @@ test('L05: language from lip.center (?lang=), 15-language select, right-to-left 
   // 한국어로 되돌리기
   await page.goto('/map?lang=ko');
   await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
-  await expect(page.getByRole('link', { name: messages.ko['nav.submit'] })).toBeVisible();
+  await expect(page.locator('.site-nav').getByRole('link', { name: messages.ko['nav.submit'] })).toBeVisible();
 });

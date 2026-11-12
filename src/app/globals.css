@@ -439,3 +439,9 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.65; }
 
 /* 오른쪽→왼쪽 언어(우르두어): 글은 오른쪽부터, 지도·로드뷰는 원래 방향 그대로 */
 [dir="rtl"] .leaflet-host, [dir="rtl"] .leaflet-container, [dir="rtl"] .roadview__view, [dir="rtl"] .player-rv__view, [dir="rtl"] .admin-rv__view { direction: ltr; }
+/* 글자 사이 간격을 줄이면 깨지는 문자(크메르·싱할라·데바나가리·태국·우르두): 간격은 기본값으로 */
+html:is([lang="km"], [lang="si"], [lang="hi"], [lang="ne"], [lang="th"], [lang="ur"]) * { letter-spacing: normal !important; }
+/* 띄어쓰기 없이 쓰는 문자(태국·크메르·중국·일본): 제목도 글자 단위로 줄을 바꿀 수 있게 */
+html:is([lang="th"], [lang="km"], [lang="zh-Hans"], [lang="ja"]) :is(h1, h2, h3) { word-break: normal; }
+/* 우르두어 글자는 위아래로 길어 줄 간격을 조금 넓힌다 */
+html[lang="ur"] body { line-height: 1.9; }

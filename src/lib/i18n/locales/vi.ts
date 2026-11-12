@@ -64,7 +64,7 @@ const m: Messages = {
   "place.heading": "Hãy chọn một địa chỉ cụ thể ở gần đó.",
   "place.lead": "Đây là các địa chỉ quanh chỗ bạn đã nhấn. Nếu không thấy địa điểm, hãy tìm kiếm.",
   "place.searchLabel": "Tìm địa chỉ hoặc địa điểm",
-  "place.searchPlaceholder": "Ví dụ: Tòa thị chính Pohang",
+  "place.searchPlaceholder": "Ví dụ: Tòa thị chính Pohang (포항시청)",
   "place.search": "Tìm",
   "place.loading": "Đang tìm địa chỉ…",
   "place.empty": "Không tìm thấy địa chỉ. Hãy thử tên khác.",

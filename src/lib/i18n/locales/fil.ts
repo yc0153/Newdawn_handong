@@ -64,7 +64,7 @@ const m: Messages = {
   "place.heading": "Pumili ng detalyadong address sa malapit.",
   "place.lead": "Ang mga address na ito ay malapit sa lugar na na-tap mo. Maghanap kung hindi mo makita ang lugar.",
   "place.searchLabel": "Maghanap ng address o lugar",
-  "place.searchPlaceholder": "hal. City Hall ng Pohang",
+  "place.searchPlaceholder": "hal. City Hall ng Pohang (포항시청)",
   "place.search": "Maghanap",
   "place.loading": "Hinahanap ang mga address…",
   "place.empty": "Walang nahanap na address. Subukan ang ibang pangalan.",

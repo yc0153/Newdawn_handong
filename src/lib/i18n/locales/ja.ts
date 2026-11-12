@@ -64,7 +64,7 @@ const m: Messages = {
   "place.heading": "近くの詳しい住所から場所を選んでください。",
   "place.lead": "地図でタップした場所の周辺の住所です。見つからない場合は検索してください。",
   "place.searchLabel": "住所・場所を検索",
-  "place.searchPlaceholder": "例：浦項市役所",
+  "place.searchPlaceholder": "例：浦項市役所 (포항시청)",
   "place.search": "検索",
   "place.loading": "住所を検索中…",
   "place.empty": "住所が見つかりませんでした。別の名前で検索してみてください。",

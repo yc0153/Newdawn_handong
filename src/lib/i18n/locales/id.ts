@@ -64,7 +64,7 @@ const m: Messages = {
   "place.heading": "Pilih alamat rinci di sekitar tempat itu.",
   "place.lead": "Alamat-alamat ini berada di sekitar titik yang Anda ketuk. Cari jika tempatnya tidak terlihat.",
   "place.searchLabel": "Cari alamat atau tempat",
-  "place.searchPlaceholder": "Contoh: Balai Kota Pohang",
+  "place.searchPlaceholder": "Contoh: Balai Kota Pohang (포항시청)",
   "place.search": "Cari",
   "place.loading": "Mencari alamat…",
   "place.empty": "Alamat tidak ditemukan. Coba nama lain.",

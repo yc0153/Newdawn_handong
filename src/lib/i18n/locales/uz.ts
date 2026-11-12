@@ -64,7 +64,7 @@ const m: Messages = {
   "place.heading": "Yaqin atrofdagi aniq manzilni tanlang.",
   "place.lead": "Bular siz bosgan joy atrofidagi manzillar. Kerakli joyni koʻrmasangiz, qidiring.",
   "place.searchLabel": "Manzil yoki joyni qidirish",
-  "place.searchPlaceholder": "Masalan: Pohang shahar hokimiyati",
+  "place.searchPlaceholder": "Masalan: Pohang shahar hokimiyati (포항시청)",
   "place.search": "Qidirish",
   "place.loading": "Manzillar qidirilmoqda…",
   "place.empty": "Manzil topilmadi. Boshqa nom bilan qidirib koʻring.",
